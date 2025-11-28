@@ -1,0 +1,2289 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>芯片设计集成工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        .canvas-container {
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+        }
+
+        #padCanvas {
+            cursor: grab;
+        }
+
+        #padCanvas:active {
+            cursor: grabbing;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 1000;
+            display: none;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto p-4">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">芯片设计集成工具</h1>
+
+        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+            <!-- 控制面板 -->
+            <div class="lg:col-span-1 bg-white rounded-lg shadow-lg p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-700">控制面板</h2>
+
+                <!-- 文件上传 -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">上传Excel文件</label>
+                    <input type="file" id="fileInput" accept=".xlsx,.xls"
+                        class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                    <p class="text-xs text-gray-500 mt-1">支持包含Die Size和PAD Coordinates的Excel文件</p>
+                </div>
+
+                <!-- 芯片尺寸显示 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium mb-3 text-gray-700">芯片尺寸</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">长度 (μm)</label>
+                            <input type="number" id="chipSizeX" value="5000"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">宽度 (μm)</label>
+                            <input type="number" id="chipSizeY" value="5000"
+                                class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 视图控制 -->
+                <div class="mb-6">
+                    <h3 class="text-lg font-medium mb-3 text-gray-700">视图控制</h3>
+                    <div class="flex gap-2 mb-3">
+                        <button id="zoomIn"
+                            class="flex-1 px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">放大</button>
+                        <button id="zoomOut"
+                            class="flex-1 px-3 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">缩小</button>
+                    </div>
+                    <button id="resetView"
+                        class="w-full px-3 py-2 bg-gray-500 text-white rounded-md hover:bg-gray-600 transition-colors">重置视图</button>
+                </div>
+
+                <!-- 导出功能 -->
+                <div class="space-y-3 mb-6">
+                    <h3 class="text-lg font-medium text-gray-700">导出功能</h3>
+                    <button id="exportImage"
+                        class="w-full px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors">导出图片</button>
+                    <button id="exportPDF"
+                        class="w-full px-4 py-2 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors">导出PDF</button>
+                    <button id="exportPadLSP"
+                        class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">导出PAD绘制LSP</button>
+                    <button id="exportD2PadLSP"
+                        class="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors">导出D2芯片LSP</button>
+                    <button id="exportWireLSP"
+                        class="w-full px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors">导出连线LSP</button>
+                </div>
+
+                <!-- 统计信息 -->
+                <div class="p-4 bg-gray-50 rounded-md">
+                    <h3 class="text-sm font-medium text-gray-700 mb-2">统计信息</h3>
+                    <div id="padCount" class="text-sm text-gray-600">PAD数量: 0</div>
+                    <div id="vssCount" class="text-sm text-gray-600">VSS PAD: 0</div>
+                    <div id="vddCount" class="text-sm text-gray-600">VDD PAD: 0</div>
+                    <div id="wireCount" class="text-sm text-gray-600">连线数量: 0</div>
+                    <div id="lfCount" class="text-sm text-gray-600">L/F连线: 0</div>
+                </div>
+            </div>
+
+            <!-- 可视化区域 -->
+            <div class="lg:col-span-3">
+                <div class="canvas-container bg-white rounded-lg shadow-lg mb-4">
+                    <canvas id="padCanvas" width="800" height="600" class="block"></canvas>
+                    <div id="tooltip" class="tooltip"></div>
+                </div>
+
+                <!-- 数据预览 -->
+                <div id="dataPreview" class="bg-white rounded-lg shadow-lg p-4" style="display: none;">
+                    <h3 class="text-lg font-medium mb-3 text-gray-700">数据预览</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <!-- PAD数据预览 -->
+                        <div>
+                            <h4 class="text-md font-medium mb-2 text-gray-600">PAD坐标数据</h4>
+                            <div class="max-h-40 overflow-y-auto border rounded">
+                                <table class="min-w-full text-xs">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-2 py-1 text-left">编号</th>
+                                            <th class="px-2 py-1 text-left">X</th>
+                                            <th class="px-2 py-1 text-left">Y</th>
+                                            <th class="px-2 py-1 text-left">尺寸</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="padPreviewTable" class="divide-y divide-gray-200">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- 连线数据预览 -->
+                        <div>
+                            <h4 class="text-md font-medium mb-2 text-gray-600">连线关系数据</h4>
+                            <div class="max-h-40 overflow-y-auto border rounded">
+                                <table class="min-w-full text-xs">
+                                    <thead class="bg-gray-50">
+                                        <tr>
+                                            <th class="px-2 py-1 text-left">PIN</th>
+                                            <th class="px-2 py-1 text-left">PAD</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="wirePreviewTable" class="divide-y divide-gray-200">
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class IntegratedChipTool {
+            constructor() {
+                this.canvas = document.getElementById('padCanvas');
+                this.ctx = this.canvas.getContext('2d');
+                this.tooltip = document.getElementById('tooltip');
+
+                this.pads = [];
+                this.wireConnections = [];
+                this.lfConnections = []; // 新增：存储L/F连线
+                this.padToPadConnections = []; // 新增：存储PAD to PAD连线
+                this.totalPinCount = 0; // 新增：存储总PIN数量
+                this.chipSizeX = 5000;
+                this.chipSizeY = 5000;
+
+                // D2芯片数据
+                this.d2Pads = [];
+                this.d2ChipSizeX = 0;
+                this.d2ChipSizeY = 0;
+                this.hasD2Chip = false;
+
+                this.scale = 0.1;
+                this.offsetX = 50;
+                this.offsetY = 50;
+                this.isDragging = false;
+                this.lastMouseX = 0;
+                this.lastMouseY = 0;
+                this.lastExcelFileName = null;
+
+                this.initEventListeners();
+                this.resizeCanvas();
+            }
+
+            initEventListeners() {
+                // 文件上传
+                document.getElementById('fileInput').addEventListener('change', (e) => {
+                    this.handleFileUpload(e);
+                });
+
+                // 芯片尺寸变化
+                document.getElementById('chipSizeX').addEventListener('change', (e) => {
+                    this.chipSizeX = parseFloat(e.target.value) || 5000;
+                    this.draw();
+                });
+
+                document.getElementById('chipSizeY').addEventListener('change', (e) => {
+                    this.chipSizeY = parseFloat(e.target.value) || 5000;
+                    this.draw();
+                });
+
+                // 缩放控制
+                document.getElementById('zoomIn').addEventListener('click', () => {
+                    this.scale *= 1.2;
+                    this.draw();
+                });
+
+                document.getElementById('zoomOut').addEventListener('click', () => {
+                    this.scale /= 1.2;
+                    this.draw();
+                });
+
+                document.getElementById('resetView').addEventListener('click', () => {
+                    this.resetView();
+                });
+
+                // Canvas事件
+                this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+                this.canvas.addEventListener('wheel', (e) => this.handleWheel(e));
+
+                // 导出功能
+                document.getElementById('exportImage').addEventListener('click', () => {
+                    this.exportToImage();
+                });
+                document.getElementById('exportPDF').addEventListener('click', () => {
+                    this.exportToPDF();
+                });
+                document.getElementById('exportPadLSP').addEventListener('click', () => {
+                    this.exportPadLSP();
+                });
+                document.getElementById('exportD2PadLSP').addEventListener('click', () => {
+                    this.exportD2PadLSP();
+                });
+                document.getElementById('exportWireLSP').addEventListener('click', () => {
+                    this.exportWireLSP();
+                });
+
+                // 窗口大小变化
+                window.addEventListener('resize', () => {
+                    this.resizeCanvas();
+                });
+            }
+
+            resizeCanvas() {
+                const container = this.canvas.parentElement;
+                this.canvas.width = container.clientWidth - 4;
+                this.canvas.height = Math.max(600, window.innerHeight - 200);
+                this.draw();
+            }
+
+            handleFileUpload(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                this.lastExcelFileName = file.name;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const data = new Uint8Array(e.target.result);
+                        const workbook = XLSX.read(data, { type: 'array' });
+
+                        console.log(`📋 Excel文件包含 ${workbook.SheetNames.length} 个工作表: ${workbook.SheetNames.join(', ')}`);
+
+                        // 检查是否有D2工作表
+                        const hasD2Sheet = workbook.SheetNames.some(name => name.toUpperCase() === 'D2');
+                        if (hasD2Sheet) {
+                            console.log('🔍 检测到D2工作表，将解析第二颗芯片数据');
+                            this.hasD2Chip = true;
+                        }
+
+                        // 尝试解析每个工作表
+                        let parseSuccess = false;
+                        let mainChipParsed = false;
+
+                        for (let i = 0; i < workbook.SheetNames.length; i++) {
+                            const sheetName = workbook.SheetNames[i];
+                            const worksheet = workbook.Sheets[sheetName];
+
+                            console.log(`\n🔍 正在尝试解析工作表 ${i + 1}/${workbook.SheetNames.length}: "${sheetName}"`);
+
+                            // 如果是D2工作表，使用专门的解析函数
+                            if (sheetName.toUpperCase() === 'D2') {
+                                try {
+                                    this.parseD2ChipData(worksheet);
+                                    console.log(`✅ 成功解析D2芯片数据`);
+                                } catch (error) {
+                                    console.log(`❌ D2工作表解析失败:`, error.message);
+                                    console.error('详细错误信息:', error);
+                                }
+                                continue;
+                            }
+
+                            // 如果主芯片已经解析成功，跳过其他非D2工作表
+                            if (mainChipParsed) {
+                                continue;
+                            }
+
+                            try {
+                                parseSuccess = this.parseExcelData(worksheet, sheetName);
+
+                                if (parseSuccess) {
+                                    console.log(`✅ 成功从工作表 "${sheetName}" 解析到数据!`);
+                                    mainChipParsed = true;
+                                    // 不要break，继续查找D2工作表
+                                } else {
+                                    console.log(`❌ 工作表 "${sheetName}" 未找到有效的PAD数据`);
+                                }
+                            } catch (error) {
+                                console.log(`❌ 工作表 "${sheetName}" 解析时发生错误:`, error.message);
+                                console.error('详细错误信息:', error);
+                                continue; // 继续尝试下一个工作表
+                            }
+                        }
+
+                        if (!parseSuccess) {
+                            alert('所有工作表都未找到有效的PAD数据。请检查Excel文件格式。');
+                            console.log('❌ 所有工作表解析失败，请检查以下内容:');
+                            console.log('1. 是否包含 "PAD Coordinates" 标题');
+                            console.log('2. 是否包含 "pad no", "x", "y" 等列标题');
+                            console.log('3. 数据格式是否正确');
+                        }
+
+                    } catch (error) {
+                        alert('文件解析失败: ' + error.message);
+                        console.error('Excel文件解析错误:', error);
+                    }
+                };
+                reader.readAsArrayBuffer(file);
+            }
+
+            parseExcelData(worksheet, sheetName = 'Sheet1') {
+                // 检查工作表是否有效
+                if (!worksheet || !worksheet['!ref']) {
+                    console.log(`⚠️ 工作表 "${sheetName}" 为空或无效，跳过解析`);
+                    return false;
+                }
+
+                let range;
+                try {
+                    range = XLSX.utils.decode_range(worksheet['!ref']);
+                } catch (error) {
+                    console.log(`❌ 工作表 "${sheetName}" 范围解析失败:`, error.message);
+                    return false;
+                }
+
+                // 在尝试新的工作表之前，临时保存当前数据
+                const previousPads = [...this.pads];
+                const previousWireConnections = [...this.wireConnections];
+                const previousLFConnections = [...this.lfConnections];
+                const previousTotalPinCount = this.totalPinCount;
+                const previousChipSizeX = this.chipSizeX;
+                const previousChipSizeY = this.chipSizeY;
+
+                // 重置数据用于新的解析尝试
+                this.pads = [];
+                this.wireConnections = [];
+                this.lfConnections = [];
+                this.totalPinCount = 0;
+
+                console.log(`📊 开始解析工作表 "${sheetName}" (范围: ${range.s.r + 1}-${range.e.r + 1}行, ${String.fromCharCode(65 + range.s.c)}-${String.fromCharCode(65 + range.e.c)}列)`);
+
+                // 首先尝试解析芯片尺寸
+                this.parseChipSize(worksheet, range);
+
+                // 尝试解析PAD数据，先用原逻辑，失败后用备用逻辑
+                const padsParsed = this.parsePadDataPrimary(worksheet, range);
+                if (!padsParsed) {
+                    console.log('主要解析方法失败，尝试备用解析方法');
+                    this.parsePadDataFallback(worksheet, range);
+                }
+
+                // 检查是否成功解析到PAD数据
+                const parseSuccess = this.pads.length > 0;
+
+                if (parseSuccess) {
+                    // 解析成功，继续处理连线关系和更新界面
+                    console.log(`✅ 工作表 "${sheetName}" 解析成功，找到 ${this.pads.length} 个PAD`);
+
+                    // 查找连线关系
+                    this.parseWireConnections(worksheet, range);
+
+                    this.updateStatistics();
+                    this.updateDataPreview();
+                    this.resetView();
+                    this.draw();
+
+                    return true;
+                } else {
+                    // 解析失败，恢复之前的数据
+                    console.log(`❌ 工作表 "${sheetName}" 解析失败，未找到有效PAD数据`);
+                    this.pads = previousPads;
+                    this.wireConnections = previousWireConnections;
+                    this.lfConnections = previousLFConnections;
+                    this.totalPinCount = previousTotalPinCount;
+                    this.chipSizeX = previousChipSizeX;
+                    this.chipSizeY = previousChipSizeY;
+
+                    return false;
+                }
+            }
+
+            parseChipSize(worksheet, range) {
+                let dieSizeFound = false;
+
+                console.log('🔍 开始解析芯片尺寸...');
+
+                // 首先尝试查找"Die Size(um)"
+                for (let R = range.s.r; R <= range.e.r && !dieSizeFound; ++R) {
+                    for (let C = range.s.c; C <= range.e.c; ++C) {
+                        const cellAddress = XLSX.utils.encode_cell({ c: C, r: R });
+                        const cell = worksheet[cellAddress];
+                        if (cell && cell.v && typeof cell.v !== 'undefined') {
+                            const cellStr = cell.v.toString();
+                            if (cellStr.includes('Die Size(um)')) {
+                                // 查找B列和D列的值
+                                const bCellAddress = XLSX.utils.encode_cell({ c: 1, r: R }); // B列
+                                const dCellAddress = XLSX.utils.encode_cell({ c: 3, r: R }); // D列
+                                const bCell = worksheet[bCellAddress];
+                                const dCell = worksheet[dCellAddress];
+
+                                if (bCell && dCell) {
+                                    this.chipSizeX = parseFloat(bCell.v) || 5000;
+                                    this.chipSizeY = parseFloat(dCell.v) || 5000;
+                                    document.getElementById('chipSizeX').value = this.chipSizeX;
+                                    document.getElementById('chipSizeY').value = this.chipSizeY;
+                                    dieSizeFound = true;
+                                    console.log(`从Die Size(um)解析到芯片尺寸: ${this.chipSizeX} x ${this.chipSizeY}`);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // 如果没找到Die Size，尝试查找"chip size"
+                if (!dieSizeFound) {
+                    for (let R = range.s.r; R <= range.e.r && !dieSizeFound; ++R) {
+                        for (let C = range.s.c; C <= range.e.c; ++C) {
+                            const cellAddress = XLSX.utils.encode_cell({ c: C, r: R });
+                            const cell = worksheet[cellAddress];
+                            if (cell && cell.v && typeof cell.v !== 'undefined') {
+                                const cellStr = cell.v.toString().toLowerCase();
+                                if (cellStr.includes('chip size') || cellStr.includes('die size')) {
+                                    // 查找该行中的X和Y值
+                                    for (let nextC = C + 1; nextC <= Math.min(range.e.c, C + 10); ++nextC) {
+                                        const xCellAddress = XLSX.utils.encode_cell({ c: nextC, r: R });
+                                        const yCellAddress = XLSX.utils.encode_cell({ c: nextC + 1, r: R });
+                                        const xCell = worksheet[xCellAddress];
+                                        const yCell = worksheet[yCellAddress];
+
+                                        if (xCell && yCell && !isNaN(xCell.v) && !isNaN(yCell.v)) {
+                                            this.chipSizeX = parseFloat(xCell.v) || 5000;
+                                            this.chipSizeY = parseFloat(yCell.v) || 5000;
+                                            document.getElementById('chipSizeX').value = this.chipSizeX;
+                                            document.getElementById('chipSizeY').value = this.chipSizeY;
+                                            dieSizeFound = true;
+                                            console.log(`从chip size解析到芯片尺寸: ${this.chipSizeX} x ${this.chipSizeY}`);
+                                            break;
+                                        }
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                        if (dieSizeFound) break;
+                    }
+                }
+
+                if (!dieSizeFound) {
+                    console.log(`⚠️ 未找到芯片尺寸信息，使用默认值: ${this.chipSizeX} x ${this.chipSizeY}`);
+                }
+            }
+
+            parsePadDataPrimary(worksheet, range) {
+                console.log('🔍 方法1: 查找 "PAD Coordinates" 标题...');
+
+                // 查找PAD Coordinates
+                let padCoordinatesStartRow = -1;
+                for (let R = range.s.r; R <= range.e.r; ++R) {
+                    for (let C = range.s.c; C <= range.e.c; ++C) {
+                        const cellAddress = XLSX.utils.encode_cell({ c: C, r: R });
+                        const cell = worksheet[cellAddress];
+                        if (cell && cell.v && typeof cell.v !== 'undefined' && cell.v.toString().includes('PAD Coordinates')) {
+                            padCoordinatesStartRow = R + 1; // 下一行开始是数据
+                            console.log(`✅ 找到 "PAD Coordinates" 标题在第${R + 1}行第${String.fromCharCode(65 + C)}列`);
+                            break;
+                        }
+                    }
+                    if (padCoordinatesStartRow !== -1) break;
+                }
+
+                if (padCoordinatesStartRow === -1) {
+                    console.log('❌ 未找到 "PAD Coordinates" 标题');
+                }
+
+                // 解析PAD数据 - 只解析A列是数字的行
+                if (padCoordinatesStartRow !== -1) {
+                    console.log('使用主要解析方法 (PAD Coordinates)');
+                    for (let R = padCoordinatesStartRow; R <= range.e.r; ++R) {
+                        const aCellAddress = XLSX.utils.encode_cell({ c: 0, r: R }); // A列
+                        const aCell = worksheet[aCellAddress];
+
+                        // 处理A列的pad编号，支持文本格式的数字
+                        if (!aCell || !aCell.v) {
+                            continue;
+                        }
+
+                        // 处理文本格式的数字
+                        const cellValue = aCell.v.toString().trim();
+                        let padNumber;
+
+                        if (typeof aCell.v === 'number' && Number.isInteger(aCell.v) && aCell.v > 0) {
+                            // 如果是数字格式，直接使用
+                            padNumber = aCell.v;
+                        } else {
+                            // 如果是文本格式，提取数字
+                            const extractedNumber = cellValue.replace(/[^\d]/g, '');
+                            const numericValue = parseInt(extractedNumber);
+
+                            if (!extractedNumber || isNaN(numericValue) || numericValue <= 0) {
+                                console.log(`主要解析跳过第${R + 1}行：A列 "${cellValue}" 无法提取有效数字`);
+                                continue;
+                            }
+
+                            padNumber = numericValue;
+                            console.log(`主要解析第${R + 1}行：A列 "${cellValue}" -> 提取数字 "${numericValue}"`);
+                        }
+
+                        const bCellAddress = XLSX.utils.encode_cell({ c: 1, r: R }); // B列
+                        const cCellAddress = XLSX.utils.encode_cell({ c: 2, r: R }); // C列
+                        const dCellAddress = XLSX.utils.encode_cell({ c: 3, r: R }); // D列
+                        const eCellAddress = XLSX.utils.encode_cell({ c: 4, r: R }); // E列
+
+                        const bCell = worksheet[bCellAddress];
+                        const cCell = worksheet[cCellAddress];
+                        const dCell = worksheet[dCellAddress];
+                        const eCell = worksheet[eCellAddress];
+
+                        // 确保有坐标数据
+                        if (cCell && dCell && !isNaN(cCell.v) && !isNaN(dCell.v)) {
+                            try {
+                                const padName = bCell && bCell.v ? bCell.v.toString().trim() : `PAD${padNumber}`;
+                                const x = parseFloat(cCell.v);
+                                const y = parseFloat(dCell.v);
+
+                                // 解析尺寸
+                                let width = 50, height = 50;
+                                if (eCell && eCell.v) {
+                                    const sizeStr = eCell.v.toString();
+                                    // 支持多种格式: (50 50), (50,50), 50 50, 50,50
+                                    const sizeMatch = sizeStr.match(/\(?\s*([0-9.]+)[\s,]+([0-9.]+)\s*\)?/);
+                                    if (sizeMatch) {
+                                        width = parseFloat(sizeMatch[1]);
+                                        height = parseFloat(sizeMatch[2]);
+                                    }
+                                }
+
+                                this.pads.push({
+                                    number: padNumber,
+                                    x: x,
+                                    y: y,
+                                    width: width,
+                                    height: height,
+                                    name: padName
+                                });
+                            } catch (error) {
+                                console.warn(`解析第${R + 1}行PAD数据失败:`, error);
+                            }
+                        }
+                    }
+                    return true; // 成功解析
+                }
+
+                return false; // 未找到PAD Coordinates
+            }
+
+            parsePadDataFallback(worksheet, range) {
+                console.log('🔍 方法2: 查找 "pad no" 标题行...');
+
+                // 查找"pad no"标题行
+                let padNoHeaderRow = -1;
+                let padNoCol = -1;
+                let padNameCol = -1;
+                let xCol = -1;
+                let yCol = -1;
+                let padSizeCol = -1;
+
+                // 打印前10行的内容用于调试
+                for (let R = range.s.r; R <= Math.min(range.e.r, range.s.r + 15); ++R) {
+                    let rowContent = [];
+                    for (let C = range.s.c; C <= Math.min(range.e.c, range.s.c + 10); ++C) {
+                        const cellAddress = XLSX.utils.encode_cell({ c: C, r: R });
+                        const cell = worksheet[cellAddress];
+                        const cellValue = cell && cell.v ? cell.v.toString() : '';
+                        rowContent.push(`${String.fromCharCode(65 + C)}:${cellValue}`);
+                    }
+                    console.log(`第${R + 1}行: ${rowContent.join(' | ')}`);
+                }
+
+                for (let R = range.s.r; R <= range.e.r; ++R) {
+                    for (let C = range.s.c; C <= range.e.c; ++C) {
+                        const cellAddress = XLSX.utils.encode_cell({ c: C, r: R });
+                        const cell = worksheet[cellAddress];
+                        if (cell && cell.v && typeof cell.v !== 'undefined') {
+                            const cellStr = cell.v.toString().toLowerCase().trim();
+                            // 扩展pad no的搜索模式
+                            if (cellStr.includes('pad no') || cellStr === 'pad no.' ||
+                                cellStr.includes('pad number') || cellStr.includes('padnumber') ||
+                                cellStr.includes('pad_no') || cellStr.includes('pad_number') ||
+                                cellStr === 'no' || cellStr === 'number' || cellStr === 'padno') {
+                                padNoHeaderRow = R;
+                                padNoCol = C;
+                                console.log(`找到pad no标题在第${R + 1}行第${String.fromCharCode(65 + C)}列: "${cell.v}"`);
+                                break;
+                            }
+                        }
+                    }
+                    if (padNoHeaderRow !== -1) break;
+                }
+
+                if (padNoHeaderRow === -1) {
+                    console.log('备用解析方法失败：未找到pad no相关标题');
+                    console.log('请检查Excel文件是否包含以下任一列标题:');
+                    console.log('- pad no, pad number, pad_no, pad_number, padno, padnumber, no, number');
+                    return false;
+                }
+
+                // 在同一行查找其他列标题
+                console.log(`在标题行${padNoHeaderRow + 1}查找其他列标题...`);
+                for (let C = range.s.c; C <= range.e.c; ++C) {
+                    const cellAddress = XLSX.utils.encode_cell({ c: C, r: padNoHeaderRow });
+                    const cell = worksheet[cellAddress];
+                    if (cell && cell.v && typeof cell.v !== 'undefined') {
+                        const cellStr = cell.v.toString().toLowerCase().trim();
+                        console.log(`检查第${String.fromCharCode(65 + C)}列: "${cell.v}" -> "${cellStr}"`);
+
+                        if (cellStr.includes('pad name') || cellStr.includes('name') ||
+                            cellStr.includes('padname') || cellStr.includes('pad_name')) {
+                            padNameCol = C;
+                            console.log(`✓ 找到pad name列在第${String.fromCharCode(65 + C)}列: "${cell.v}"`);
+                        } else if (cellStr === 'x' || cellStr.includes('x coord') ||
+                            cellStr.includes('x_coord') || cellStr.includes('x-coord') ||
+                            cellStr.includes('x position') || cellStr.includes('x pos') ||
+                            cellStr.includes('coordinate x') || cellStr.includes('coord_x')) {
+                            xCol = C;
+                            console.log(`✓ 找到X坐标列在第${String.fromCharCode(65 + C)}列: "${cell.v}"`);
+                        } else if (cellStr === 'y' || cellStr.includes('y coord') ||
+                            cellStr.includes('y_coord') || cellStr.includes('y-coord') ||
+                            cellStr.includes('y position') || cellStr.includes('y pos') ||
+                            cellStr.includes('coordinate y') || cellStr.includes('coord_y')) {
+                            yCol = C;
+                            console.log(`✓ 找到Y坐标列在第${String.fromCharCode(65 + C)}列: "${cell.v}"`);
+                        } else if (cellStr.includes('pad size') || cellStr.includes('size') ||
+                            cellStr.includes('padsize') || cellStr.includes('pad_size') ||
+                            cellStr.includes('dimension') || cellStr.includes('width') ||
+                            cellStr.includes('height')) {
+                            padSizeCol = C;
+                            console.log(`✓ 找到pad size列在第${String.fromCharCode(65 + C)}列: "${cell.v}"`);
+                        }
+                    }
+                }
+
+                // 检查必要的列是否都找到了
+                console.log(`列标题查找结果:`);
+                console.log(`- pad no: ${padNoCol >= 0 ? '✓ 第' + String.fromCharCode(65 + padNoCol) + '列' : '✗ 未找到'}`);
+                console.log(`- pad name: ${padNameCol >= 0 ? '✓ 第' + String.fromCharCode(65 + padNameCol) + '列' : '✗ 未找到'}`);
+                console.log(`- X坐标: ${xCol >= 0 ? '✓ 第' + String.fromCharCode(65 + xCol) + '列' : '✗ 未找到'}`);
+                console.log(`- Y坐标: ${yCol >= 0 ? '✓ 第' + String.fromCharCode(65 + yCol) + '列' : '✗ 未找到'}`);
+                console.log(`- pad size: ${padSizeCol >= 0 ? '✓ 第' + String.fromCharCode(65 + padSizeCol) + '列' : '✗ 未找到'}`);
+
+                if (padNoCol === -1 || xCol === -1 || yCol === -1) {
+                    console.log('❌ 备用解析方法失败：缺少必要的列标题');
+                    console.log('必须列: pad no, X坐标, Y坐标');
+                    console.log('请确保Excel文件包含以下列标题:');
+                    console.log('X坐标列: x, x coord, x_coord, x-coord, x position, x pos, coordinate x, coord_x');
+                    console.log('Y坐标列: y, y coord, y_coord, y-coord, y position, y pos, coordinate y, coord_y');
+                    return false;
+                }
+
+                console.log('✅ 使用备用解析方法 (pad no标题)');
+
+                let successCount = 0;
+                let errorCount = 0;
+
+                // 从标题行下一行开始解析数据
+                for (let R = padNoHeaderRow + 1; R <= range.e.r; ++R) {
+                    const padNoCellAddress = XLSX.utils.encode_cell({ c: padNoCol, r: R });
+                    const xCellAddress = XLSX.utils.encode_cell({ c: xCol, r: R });
+                    const yCellAddress = XLSX.utils.encode_cell({ c: yCol, r: R });
+
+                    const padNoCell = worksheet[padNoCellAddress];
+                    const xCell = worksheet[xCellAddress];
+                    const yCell = worksheet[yCellAddress];
+
+                    // 确保有必要的数据，并且pad no列包含数字
+                    if (padNoCell && padNoCell.v && xCell && !isNaN(xCell.v) && yCell && !isNaN(yCell.v)) {
+                        const padNoValue = padNoCell.v.toString().trim();
+
+                        // 处理文本格式的数字：提取所有数字字符，然后验证是否能转换为有效数字
+                        const extractedNumber = padNoValue.replace(/[^\d]/g, ''); // 提取所有数字字符
+                        const numericValue = parseInt(extractedNumber);
+
+                        // 只处理能提取出有效数字的行，跳过纯文本行或无数字的行
+                        if (!extractedNumber || isNaN(numericValue) || numericValue <= 0) {
+                            console.log(`跳过第${R + 1}行：pad no "${padNoValue}" 无法提取有效数字`);
+                            continue;
+                        }
+
+                        console.log(`第${R + 1}行：pad no "${padNoValue}" -> 提取数字 "${numericValue}"`);
+
+                        // 使用提取的数字作为pad编号
+                        const finalPadNumber = numericValue;
+                        try {
+                            const x = parseFloat(xCell.v);
+                            const y = parseFloat(yCell.v);
+
+                            // 获取pad name，如果没有name列则使用原始值作为名称
+                            let padName = padNoValue; // 默认使用原始pad no值作为名称
+                            if (padNameCol !== -1) {
+                                const padNameCellAddress = XLSX.utils.encode_cell({ c: padNameCol, r: R });
+                                const padNameCell = worksheet[padNameCellAddress];
+                                if (padNameCell && padNameCell.v) {
+                                    padName = padNameCell.v.toString().trim();
+                                }
+                            }
+
+                            // 获取pad size
+                            let width = 50, height = 50;
+                            if (padSizeCol !== -1) {
+                                const padSizeCellAddress = XLSX.utils.encode_cell({ c: padSizeCol, r: R });
+                                const padSizeCell = worksheet[padSizeCellAddress];
+                                if (padSizeCell && padSizeCell.v) {
+                                    const sizeStr = padSizeCell.v.toString();
+                                    // 支持多种格式: (50 50), (50,50), 50 50, 50,50, 50*50, 50x50
+                                    const sizeMatch = sizeStr.match(/\(?\s*([0-9.]+)[\s,*x×]+([0-9.]+)\s*\)?/);
+                                    if (sizeMatch) {
+                                        width = parseFloat(sizeMatch[1]);
+                                        height = parseFloat(sizeMatch[2]);
+                                    } else {
+                                        // 如果是单个数字，认为是正方形
+                                        const singleSize = parseFloat(sizeStr);
+                                        if (!isNaN(singleSize)) {
+                                            width = height = singleSize;
+                                        }
+                                    }
+                                }
+                            }
+
+                            this.pads.push({
+                                number: finalPadNumber, // 使用提取的数字作为编号
+                                x: x,
+                                y: y,
+                                width: width,
+                                height: height,
+                                name: padName
+                            });
+                            successCount++;
+                        } catch (error) {
+                            console.warn(`备用解析第${R + 1}行PAD数据失败:`, error);
+                            errorCount++;
+                        }
+                    }
+                }
+
+                console.log(`📊 备用解析完成统计:`);
+                console.log(`- 成功解析: ${successCount} 个PAD`);
+                console.log(`- 解析错误: ${errorCount} 个PAD`);
+                console.log(`- 总计: ${this.pads.length} 个PAD已添加到数组`);
+
+                return true;
+            }
+
+            parseWireConnections(worksheet, range) {
+                this.wireConnections = [];
+                this.lfConnections = []; // 新增：存储L/F连线
+                this.totalPinCount = 0; // 新增：存储总PIN数量
+
+                // 查找PIN Configuration标题
+                let pinConfigurationStartRow = -1;
+                for (let R = range.s.r; R <= range.e.r; ++R) {
+                    for (let C = range.s.c; C <= range.e.c; ++C) {
+                        const cellAddress = XLSX.utils.encode_cell({ c: C, r: R });
+                        const cell = worksheet[cellAddress];
+                        if (cell && cell.v && typeof cell.v !== 'undefined') {
+                            const cellStr = cell.v.toString().toLowerCase();
+                            if (cellStr.includes('pin configuration') || cellStr.includes('pin config')) {
+                                pinConfigurationStartRow = R + 1;
+                                console.log(`找到PIN Configuration在第${R + 1}行: ${cell.v}`);
+                                break;
+                            }
+                        }
+                    }
+                    if (pinConfigurationStartRow !== -1) break;
+                }
+
+                if (pinConfigurationStartRow === -1) {
+                    console.log('未找到PIN Configuration标题，使用原有逻辑查找连线关系');
+                    // 如果没找到PIN Configuration，回退到原有逻辑
+                    this.parseFallbackWireConnections(worksheet, range);
+                    return;
+                }
+
+                // 查找表头行，寻找PIN Number、PAD number、pad to L/F、pin to L/F和PAD to PAD列
+                let headerRow = -1;
+                let pinNumberCol = -1;
+                let padNumberCol = -1;
+                let padToLFCol = -1;
+                let pinToLFCol = -1;
+                let padToPadCol = -1;
+
+                // 从PIN Configuration标题开始向下查找表头
+                for (let R = pinConfigurationStartRow; R <= Math.min(range.e.r, pinConfigurationStartRow + 10); ++R) {
+                    for (let C = range.s.c; C <= range.e.c; ++C) {
+                        const cellAddress = XLSX.utils.encode_cell({ c: C, r: R });
+                        const cell = worksheet[cellAddress];
+                        if (cell && cell.v && typeof cell.v !== 'undefined') {
+                            const cellStr = cell.v.toString().toLowerCase().trim();
+                            if (cellStr.includes('pin number') || cellStr === 'pin') {
+                                headerRow = R;
+                                pinNumberCol = C;
+                                console.log(`找到PIN Number列在第${R + 1}行第${String.fromCharCode(65 + C)}列`);
+                            }
+                            if (cellStr.includes('pad number') || cellStr === 'pad') {
+                                padNumberCol = C;
+                                console.log(`找到PAD number列在第${R + 1}行第${String.fromCharCode(65 + C)}列`);
+                            }
+                            if (cellStr.includes('pad to l/f') || cellStr.includes('pad to lf')) {
+                                padToLFCol = C;
+                                console.log(`找到pad to L/F列在第${R + 1}行第${String.fromCharCode(65 + C)}列`);
+                            }
+                            if (cellStr.includes('pin to l/f') || cellStr.includes('pin to lf')) {
+                                pinToLFCol = C;
+                                console.log(`找到pin to L/F列在第${R + 1}行第${String.fromCharCode(65 + C)}列`);
+                            }
+                            if (cellStr.includes('pad to pad')) {
+                                padToPadCol = C;
+                                console.log(`找到PAD to PAD列在第${R + 1}行第${String.fromCharCode(65 + C)}列`);
+                            }
+                        }
+                    }
+                    // 如果找到了PIN和PAD列，退出循环
+                    if (pinNumberCol !== -1 && padNumberCol !== -1) {
+                        break;
+                    }
+                }
+
+                if (headerRow === -1 || pinNumberCol === -1 || padNumberCol === -1) {
+                    console.log('未找到完整的PIN Number和PAD number表头，使用原有逻辑');
+                    this.parseFallbackWireConnections(worksheet, range);
+                    return;
+                }
+
+                // 从表头下一行开始解析数据
+                let maxPinNumber = 0; // 记录最大的PIN编号
+                for (let R = headerRow + 1; R <= range.e.r; ++R) {
+                    const pinCellAddress = XLSX.utils.encode_cell({ c: pinNumberCol, r: R });
+                    const padCellAddress = XLSX.utils.encode_cell({ c: padNumberCol, r: R });
+
+                    const pinCell = worksheet[pinCellAddress];
+                    const padCell = worksheet[padCellAddress];
+
+                    // 解析常规PIN-PAD连线
+                    if (pinCell && padCell && pinCell.v && padCell.v) {
+                        const pinVal = pinCell.v.toString().trim();
+                        let padVal = padCell.v.toString().trim();
+
+                        // 确保PIN是数字
+                        if (pinVal.match(/^\d+$/)) {
+                            const pinNum = parseInt(pinVal);
+                            if (pinNum > maxPinNumber) {
+                                maxPinNumber = pinNum;
+                            }
+
+                            // 处理PAD编号：如果是大于1000的数字，可能是千位分隔符被识别了
+                            let padNumbers = [];
+                            if (/^\d+$/.test(padVal)) {
+                                const padNum = parseInt(padVal);
+                                if (padNum >= 1000) {
+                                    // 从后往前每3位分割
+                                    const padStr = padVal;
+                                    const parts = [];
+                                    for (let i = padStr.length; i > 0; i -= 3) {
+                                        const start = Math.max(0, i - 3);
+                                        parts.unshift(padStr.substring(start, i));
+                                    }
+                                    padNumbers = parts;
+                                    console.log(`PAD number ${padVal} 被拆分为: ${parts.join(', ')}`);
+                                } else {
+                                    padNumbers = [padVal];
+                                }
+                            } else {
+                                // 处理可能的多个PAD编号（用、，、；分隔）
+                                padNumbers = padVal.split(/[,，、;；]/).map(pad => pad.trim()).filter(pad => pad);
+                            }
+
+                            padNumbers.forEach(padNumber => {
+                                this.wireConnections.push({
+                                    pin: `p${pinVal}`,  // 添加p前缀以匹配LSP脚本格式
+                                    pad: padNumber.toString()  // 确保是字符串
+                                });
+                            });
+                        }
+                    }
+
+                    // 解析pad to L/F连线
+                    if (padToLFCol !== -1) {
+                        const padToLFCellAddress = XLSX.utils.encode_cell({ c: padToLFCol, r: R });
+                        const padToLFCell = worksheet[padToLFCellAddress];
+
+                        if (padToLFCell && padToLFCell.v && padToLFCell.v.toString().trim()) {
+                            // 获取E列的PAD number
+                            const eCellAddress = XLSX.utils.encode_cell({ c: 4, r: R }); // E列是第4列（从0开始）
+                            const eCell = worksheet[eCellAddress];
+
+                            if (eCell && eCell.v) {
+                                let padNumbersStr = eCell.v.toString().trim();
+                                let padNumbers = [];
+
+                                // 处理PAD编号：如果是大于1000的数字，可能是千位分隔符被识别了
+                                if (/^\d+$/.test(padNumbersStr)) {
+                                    const padNum = parseInt(padNumbersStr);
+                                    if (padNum >= 1000) {
+                                        // 从后往前每3位分割
+                                        const parts = [];
+                                        for (let i = padNumbersStr.length; i > 0; i -= 3) {
+                                            const start = Math.max(0, i - 3);
+                                            parts.unshift(padNumbersStr.substring(start, i));
+                                        }
+                                        padNumbers = parts;
+                                        console.log(`pad to L/F: PAD number ${padNumbersStr} 被拆分为: ${parts.join(', ')}`);
+                                    } else {
+                                        padNumbers = [padNumbersStr];
+                                    }
+                                } else {
+                                    // 处理可能的多个PAD编号（用,，、;；等分隔）
+                                    padNumbers = padNumbersStr.split(/[,，、;；\s]+/).map(pad => pad.trim()).filter(pad => pad);
+                                }
+
+                                padNumbers.forEach(padNumber => {
+                                    this.lfConnections.push({
+                                        type: 'pad',
+                                        number: padNumber
+                                    });
+                                    console.log(`找到pad to L/F: PAD ${padNumber}`);
+                                });
+                            }
+                        }
+                    }
+
+                    // 解析pin to L/F连线
+                    if (pinToLFCol !== -1) {
+                        const pinToLFCellAddress = XLSX.utils.encode_cell({ c: pinToLFCol, r: R });
+                        const pinToLFCell = worksheet[pinToLFCellAddress];
+
+                        if (pinToLFCell && pinToLFCell.v && pinToLFCell.v.toString().trim()) {
+                            // 获取A列的PIN number
+                            const aCellAddress = XLSX.utils.encode_cell({ c: 0, r: R }); // A列是第0列
+                            const aCell = worksheet[aCellAddress];
+
+                            if (aCell && aCell.v) {
+                                const pinNumber = aCell.v.toString().trim();
+                                this.lfConnections.push({
+                                    type: 'pin',
+                                    number: pinNumber
+                                });
+                                console.log(`找到pin to L/F: PIN ${pinNumber}`);
+                            }
+                        }
+                    }
+
+                    // 解析PAD to PAD连线
+                    if (padToPadCol !== -1) {
+                        const padToPadCellAddress = XLSX.utils.encode_cell({ c: padToPadCol, r: R });
+                        const padToPadCell = worksheet[padToPadCellAddress];
+
+                        if (padToPadCell && padToPadCell.v && padToPadCell.v.toString().trim()) {
+                            const padToPadValue = padToPadCell.v.toString().trim();
+                            const padCellAddress = XLSX.utils.encode_cell({ c: padNumberCol, r: R });
+                            const padCell = worksheet[padCellAddress];
+
+                            if (padCell && padCell.v) {
+                                const pad1Number = padCell.v.toString().trim();
+
+                                // 判断是纯数字还是包含文字
+                                if (/^\d+$/.test(padToPadValue)) {
+                                    // 纯数字：die1内部的pad to pad连线
+                                    this.padToPadConnections.push({
+                                        type: 'die1-to-die1',
+                                        pad1: pad1Number,
+                                        pad2: padToPadValue
+                                    });
+                                    console.log(`找到die1 PAD to PAD: ${pad1Number} → ${padToPadValue}`);
+                                } else {
+                                    // 包含文字：die1和die2之间的连线
+                                    // 直接使用整个文本作为搜索关键词
+                                    this.padToPadConnections.push({
+                                        type: 'die1-to-die2',
+                                        pad1: pad1Number,
+                                        d2SearchText: padToPadValue,
+                                        originalText: padToPadValue
+                                    });
+                                    console.log(`找到die1-die2 PAD to PAD: ${pad1Number} → D2[${padToPadValue}]`);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                this.totalPinCount = maxPinNumber;
+                console.log(`从PIN Configuration解析到 ${this.wireConnections.length} 个连线关系`);
+                console.log(`从PIN Configuration解析到 ${this.lfConnections.length} 个L/F连线`);
+                console.log(`从PIN Configuration解析到 ${this.padToPadConnections.length} 个PAD to PAD连线`);
+                console.log(`总PIN数量: ${this.totalPinCount}`);
+                if (this.wireConnections.length > 0) {
+                    console.log('前几个连线关系:', this.wireConnections.slice(0, 5));
+                }
+                if (this.lfConnections.length > 0) {
+                    console.log('L/F连线:', this.lfConnections);
+                }
+                if (this.padToPadConnections.length > 0) {
+                    console.log('PAD to PAD连线:', this.padToPadConnections);
+                }
+            }
+
+            // 回退逻辑：如果没找到PIN Configuration，使用原有方法
+            parseFallbackWireConnections(worksheet, range) {
+                // 在整个表格中查找可能的PIN-PAD连接
+                for (let R = range.s.r; R <= range.e.r; ++R) {
+                    const aCellAddress = XLSX.utils.encode_cell({ c: 0, r: R }); // A列
+                    const bCellAddress = XLSX.utils.encode_cell({ c: 1, r: R }); // B列
+
+                    const aCell = worksheet[aCellAddress];
+                    const bCell = worksheet[bCellAddress];
+
+                    if (aCell && bCell && aCell.v && bCell.v) {
+                        const aVal = aCell.v.toString().trim();
+                        const bVal = bCell.v.toString().trim();
+
+                        // 检查是否为PIN编号（纯数字）和PAD编号的组合
+                        // 并且要排除PAD坐标数据区域
+                        if (aVal.match(/^\d+$/) && bVal.length > 0 &&
+                            !bVal.match(/^(X|Y|坐标|名称|编号|pad|coordinates)/i) &&
+                            !bVal.match(/^\d+(\.\d+)?$/)) { // 排除纯数字（可能是坐标）
+
+                            // 检查B列右侧是否有数字坐标（如果有，则可能是PAD数据而不是连线数据）
+                            const cCellAddress = XLSX.utils.encode_cell({ c: 2, r: R });
+                            const dCellAddress = XLSX.utils.encode_cell({ c: 3, r: R });
+                            const cCell = worksheet[cCellAddress];
+                            const dCell = worksheet[dCellAddress];
+
+                            const hasCoordinates = cCell && dCell &&
+                                !isNaN(cCell.v) && !isNaN(dCell.v) &&
+                                cCell.v !== '' && dCell.v !== '';
+
+                            // 如果没有坐标数据，则认为是连线关系
+                            if (!hasCoordinates) {
+                                // 处理可能的多个PAD编号（用、，、；分隔）
+                                const padNumbers = bVal.split(/[,，、;；]/).map(pad => pad.trim()).filter(pad => pad);
+
+                                padNumbers.forEach(padNumber => {
+                                    this.wireConnections.push({
+                                        pin: `p${aVal}`,  // 添加p前缀以匹配LSP脚本格式
+                                        pad: padNumber    // 存储pad编号
+                                    });
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            parseD2ChipData(worksheet) {
+                console.log('🔍 开始解析D2芯片数据...');
+
+                if (!worksheet || !worksheet['!ref']) {
+                    console.log('⚠️ D2工作表为空或无效');
+                    return;
+                }
+
+                const range = XLSX.utils.decode_range(worksheet['!ref']);
+                console.log(`📊 D2工作表范围: ${range.s.r + 1}-${range.e.r + 1}行, ${String.fromCharCode(65 + range.s.c)}-${String.fromCharCode(65 + range.e.c)}列`);
+                this.d2Pads = [];
+
+                // 解析Die Size
+                console.log('🔍 开始查找D2 Die Size...');
+                for (let R = range.s.r; R <= range.e.r; ++R) {
+                    for (let C = range.s.c; C <= range.e.c; ++C) {
+                        const cellAddress = XLSX.utils.encode_cell({ c: C, r: R });
+                        const cell = worksheet[cellAddress];
+                        if (cell && cell.v && typeof cell.v !== 'undefined') {
+                            const cellStr = cell.v.toString().toLowerCase();
+                            if (cellStr.includes('die size')) {
+                                console.log(`找到"Die Size"在第${R + 1}行第${String.fromCharCode(65 + C)}列: "${cell.v}"`);
+
+                                // 先尝试读取后面一个单元格，如果是空的，说明有合并单元格
+                                let xCol = C + 1;
+                                let yCol = C + 2;
+
+                                const nextCellAddress = XLSX.utils.encode_cell({ c: C + 1, r: R });
+                                const nextCell = worksheet[nextCellAddress];
+
+                                // 如果B列是空的（合并单元格），往后移两列（C和D列）
+                                if (!nextCell || !nextCell.v) {
+                                    console.log(`${String.fromCharCode(65 + C + 1)}列为空（合并单元格），往后查找C和D列`);
+                                    xCol = C + 2;
+                                    yCol = C + 3;
+                                }
+
+                                const xCellAddress = XLSX.utils.encode_cell({ c: xCol, r: R });
+                                const yCellAddress = XLSX.utils.encode_cell({ c: yCol, r: R });
+                                const xCell = worksheet[xCellAddress];
+                                const yCell = worksheet[yCellAddress];
+
+                                console.log(`尝试读取尺寸: ${String.fromCharCode(65 + xCol)}${R + 1}=${xCell ? xCell.v : 'null'}, ${String.fromCharCode(65 + yCol)}${R + 1}=${yCell ? yCell.v : 'null'}`);
+
+                                if (xCell && yCell && !isNaN(xCell.v) && !isNaN(yCell.v)) {
+                                    this.d2ChipSizeX = parseFloat(xCell.v);
+                                    this.d2ChipSizeY = parseFloat(yCell.v);
+                                    console.log(`✅ D2芯片尺寸: ${this.d2ChipSizeX} x ${this.d2ChipSizeY}`);
+                                    break;
+                                } else {
+                                    console.log('⚠️ Die Size后面的单元格不是有效数字');
+                                }
+                            }
+                        }
+                    }
+                    if (this.d2ChipSizeX > 0) break;
+                }
+
+                if (this.d2ChipSizeX === 0 || this.d2ChipSizeY === 0) {
+                    console.log('⚠️ 未找到有效的D2 Die Size，使用默认值 1000 x 1000');
+                    this.d2ChipSizeX = 1000;
+                    this.d2ChipSizeY = 1000;
+                }
+
+                // 直接从第2行开始解析（第1行是表头）
+                // 列格式：A=Pad No, B=Pad Name, C=X, D=Y, E=Pad Size
+                console.log(`📋 开始从第2行解析D2 PAD数据（跳过表头）...`);
+
+                let parsedCount = 0;
+                for (let R = 1; R <= range.e.r; ++R) { // 从第2行开始（索引1）
+                    const aCellAddress = XLSX.utils.encode_cell({ c: 0, r: R }); // A列: Pad No
+                    const bCellAddress = XLSX.utils.encode_cell({ c: 1, r: R }); // B列: Pad Name
+                    const cCellAddress = XLSX.utils.encode_cell({ c: 2, r: R }); // C列: X
+                    const dCellAddress = XLSX.utils.encode_cell({ c: 3, r: R }); // D列: Y
+                    const eCellAddress = XLSX.utils.encode_cell({ c: 4, r: R }); // E列: Pad Size
+
+                    const aCell = worksheet[aCellAddress];
+                    const bCell = worksheet[bCellAddress];
+                    const cCell = worksheet[cCellAddress];
+                    const dCell = worksheet[dCellAddress];
+                    const eCell = worksheet[eCellAddress];
+
+                    // 跳过表头行
+                    if (!aCell || !aCell.v) {
+                        // 如果A列为空且已经开始解析PAD，说明PAD数据结束
+                        if (parsedCount > 0) {
+                            console.log(`遇到空行，停止解析（第${R + 1}行）`);
+                            break;
+                        }
+                        continue;
+                    }
+
+                    const aCellValue = aCell.v.toString().trim();
+
+                    // 跳过表头（包含"pad"、"no"等文字）
+                    if (aCellValue.toLowerCase().includes('pad') || aCellValue.toLowerCase().includes('no')) {
+                        continue;
+                    }
+
+                    // 检查A列是否为纯数字
+                    if (!/^\d+$/.test(aCellValue)) {
+                        // 如果不是纯数字且已经开始解析PAD，说明PAD数据结束
+                        if (parsedCount > 0) {
+                            console.log(`遇到非数字单元格"${aCellValue}"，停止解析（第${R + 1}行）`);
+                            break;
+                        }
+                        continue;
+                    }
+
+                    // 确保有坐标数据
+                    if (cCell && dCell && !isNaN(cCell.v) && !isNaN(dCell.v)) {
+                        try {
+                            const padNumber = aCell.v.toString().trim();
+                            let padName = bCell && bCell.v ? bCell.v.toString().trim() : `PAD${padNumber}`;
+
+                            // 去掉pad name后面的冒号
+                            padName = padName.replace(/:$/, '');
+
+                            const x = parseFloat(cCell.v);
+                            const y = parseFloat(dCell.v);
+
+                            // 解析尺寸
+                            let width = 50, height = 50;
+                            if (eCell && eCell.v) {
+                                const sizeStr = eCell.v.toString();
+                                const sizeMatch = sizeStr.match(/([0-9.]+)\s*[*×xX]\s*([0-9.]+)/);
+                                if (sizeMatch) {
+                                    width = parseFloat(sizeMatch[1]);
+                                    height = parseFloat(sizeMatch[2]);
+                                }
+                            }
+
+                            this.d2Pads.push({
+                                number: padNumber,
+                                x: x,
+                                y: y,
+                                width: width,
+                                height: height,
+                                name: padName
+                            });
+                            parsedCount++;
+
+                            if (parsedCount <= 3) {
+                                console.log(`D2 PAD ${padNumber}: ${padName} at (${x}, ${y}), size: ${width}x${height}`);
+                            }
+                        } catch (error) {
+                            console.warn(`解析D2第${R + 1}行PAD数据失败:`, error);
+                        }
+                    }
+                }
+
+                console.log(`✅ D2芯片解析完成，找到 ${this.d2Pads.length} 个PAD`);
+                if (this.d2Pads.length === 0) {
+                    console.log('⚠️ 警告：D2芯片没有解析到任何PAD数据');
+                    console.log(`芯片尺寸: ${this.d2ChipSizeX} x ${this.d2ChipSizeY}`);
+                }
+            }
+
+            updateStatistics() {
+                const totalPads = this.pads.length;
+                const vssPads = this.pads.filter(pad =>
+                    pad.name.toUpperCase().includes('VSS') ||
+                    pad.name.toUpperCase().includes('VREFN')
+                ).length;
+                const vddPads = this.pads.filter(pad =>
+                    pad.name.toUpperCase().includes('VDD') ||
+                    pad.name.toUpperCase().includes('VREFP')
+                ).length;
+                const totalWires = this.wireConnections.length;
+                const totalLFWires = this.lfConnections ? this.lfConnections.length : 0;
+
+                document.getElementById('padCount').textContent = `PAD数量: ${totalPads}`;
+                document.getElementById('vssCount').textContent = `VSS PAD: ${vssPads}`;
+                document.getElementById('vddCount').textContent = `VDD PAD: ${vddPads}`;
+                document.getElementById('wireCount').textContent = `连线数量: ${totalWires}`;
+                document.getElementById('lfCount').textContent = `L/F连线: ${totalLFWires}`;
+            }
+
+            updateDataPreview() {
+                const dataPreview = document.getElementById('dataPreview');
+                const padPreviewTable = document.getElementById('padPreviewTable');
+                const wirePreviewTable = document.getElementById('wirePreviewTable');
+
+                // 更新PAD预览
+                padPreviewTable.innerHTML = '';
+                this.pads.slice(0, 10).forEach(pad => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="px-2 py-1">${pad.number}</td>
+                        <td class="px-2 py-1">${pad.x}</td>
+                        <td class="px-2 py-1">${pad.y}</td>
+                        <td class="px-2 py-1">${pad.width}×${pad.height}</td>
+                    `;
+                    padPreviewTable.appendChild(row);
+                });
+
+                // 更新连线预览
+                wirePreviewTable.innerHTML = '';
+                this.wireConnections.slice(0, 10).forEach(conn => {
+                    const row = document.createElement('tr');
+                    row.innerHTML = `
+                        <td class="px-2 py-1">${conn.pin}</td>
+                        <td class="px-2 py-1">${conn.pad}</td>
+                    `;
+                    wirePreviewTable.appendChild(row);
+                });
+
+                dataPreview.style.display = 'block';
+            }
+
+            resetView() {
+                this.scale = Math.min(
+                    (this.canvas.width - 100) / this.chipSizeX,
+                    (this.canvas.height - 100) / this.chipSizeY
+                );
+                this.offsetX = 50;
+                this.offsetY = this.canvas.height - 50;
+                this.draw();
+            }
+
+            worldToScreen(x, y) {
+                return {
+                    x: this.offsetX + x * this.scale,
+                    y: this.offsetY - y * this.scale
+                };
+            }
+
+            screenToWorld(x, y) {
+                return {
+                    x: (x - this.offsetX) / this.scale,
+                    y: (this.offsetY - y) / this.scale
+                };
+            }
+
+            getPadColor(padName) {
+                const name = padName.toUpperCase();
+                if (name.includes('VSS') || name.includes('VREFN')) {
+                    return '#10B981'; // 绿色
+                } else if (name.includes('VDD') || name.includes('VREFP')) {
+                    return '#F59E0B'; // 黄色
+                } else {
+                    return '#6B7280'; // 灰色
+                }
+            }
+
+            draw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+                // 绘制芯片轮廓
+                this.drawChipOutline();
+
+                // 绘制PAD
+                this.pads.forEach(pad => {
+                    this.drawPad(pad);
+                });
+
+                // 绘制坐标轴
+                this.drawAxes();
+            }
+
+            drawChipOutline() {
+                const topLeft = this.worldToScreen(0, this.chipSizeY);
+                const bottomRight = this.worldToScreen(this.chipSizeX, 0);
+
+                this.ctx.strokeStyle = '#374151';
+                this.ctx.lineWidth = 2;
+                this.ctx.strokeRect(
+                    topLeft.x,
+                    topLeft.y,
+                    bottomRight.x - topLeft.x,
+                    bottomRight.y - topLeft.y
+                );
+
+                // 添加芯片标签
+                this.ctx.fillStyle = '#374151';
+                this.ctx.font = '14px Arial';
+                this.ctx.fillText(
+                    `芯片 (${this.chipSizeX} × ${this.chipSizeY} μm)`,
+                    topLeft.x + 10,
+                    topLeft.y + 20
+                );
+            }
+
+            drawPad(pad) {
+                const center = this.worldToScreen(pad.x, pad.y);
+                const width = pad.width * this.scale;
+                const height = pad.height * this.scale;
+
+                // 绘制PAD矩形
+                this.ctx.fillStyle = this.getPadColor(pad.name);
+                this.ctx.fillRect(
+                    center.x - width / 2,
+                    center.y - height / 2,
+                    width,
+                    height
+                );
+
+                // 绘制PAD边框
+                this.ctx.strokeStyle = '#1F2937';
+                this.ctx.lineWidth = 1;
+                this.ctx.strokeRect(
+                    center.x - width / 2,
+                    center.y - height / 2,
+                    width,
+                    height
+                );
+
+                // 绘制PAD编号
+                this.ctx.save();
+                this.ctx.fillStyle = '#FFFFFF';
+                let fontSize = Math.min(width, height) * 0.7;
+                if (fontSize < 6) fontSize = 6;
+                this.ctx.font = `bold ${fontSize}px Arial`;
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                let text = pad.number.toString();
+                let metrics = this.ctx.measureText(text);
+                while ((metrics.width > width * 0.9 || fontSize > height * 0.9) && fontSize > 6) {
+                    fontSize -= 1;
+                    this.ctx.font = `bold ${fontSize}px Arial`;
+                    metrics = this.ctx.measureText(text);
+                }
+                this.ctx.fillText(text, center.x, center.y);
+                this.ctx.restore();
+            }
+
+            drawAxes() {
+                // X轴
+                const xStart = this.worldToScreen(0, 0);
+                const xEnd = this.worldToScreen(this.chipSizeX, 0);
+
+                this.ctx.strokeStyle = '#9CA3AF';
+                this.ctx.lineWidth = 1;
+                this.ctx.beginPath();
+                this.ctx.moveTo(xStart.x, xStart.y);
+                this.ctx.lineTo(xEnd.x, xEnd.y);
+                this.ctx.stroke();
+
+                // Y轴
+                const yStart = this.worldToScreen(0, 0);
+                const yEnd = this.worldToScreen(0, this.chipSizeY);
+
+                this.ctx.beginPath();
+                this.ctx.moveTo(yStart.x, yStart.y);
+                this.ctx.lineTo(yEnd.x, yEnd.y);
+                this.ctx.stroke();
+
+                // 坐标标签
+                this.ctx.fillStyle = '#6B7280';
+                this.ctx.font = '12px Arial';
+                this.ctx.textAlign = 'left';
+                this.ctx.fillText('(0,0)', xStart.x + 5, xStart.y - 5);
+            }
+
+            handleMouseDown(event) {
+                const rect = this.canvas.getBoundingClientRect();
+                this.lastMouseX = event.clientX - rect.left;
+                this.lastMouseY = event.clientY - rect.top;
+                this.isDragging = true;
+            }
+
+            handleMouseMove(event) {
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
+
+                if (this.isDragging) {
+                    const deltaX = mouseX - this.lastMouseX;
+                    const deltaY = mouseY - this.lastMouseY;
+
+                    this.offsetX += deltaX;
+                    this.offsetY += deltaY;
+
+                    this.lastMouseX = mouseX;
+                    this.lastMouseY = mouseY;
+
+                    this.draw();
+                } else {
+                    // 检查鼠标悬停的PAD
+                    const worldPos = this.screenToWorld(mouseX, mouseY);
+                    const hoveredPad = this.findPadAtPosition(worldPos.x, worldPos.y);
+
+                    if (hoveredPad) {
+                        this.showTooltip(hoveredPad, mouseX, mouseY);
+                    } else {
+                        this.hideTooltip();
+                    }
+                }
+            }
+
+            handleMouseUp(event) {
+                this.isDragging = false;
+            }
+
+            handleWheel(event) {
+                event.preventDefault();
+
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
+
+                const worldPos = this.screenToWorld(mouseX, mouseY);
+
+                const scaleFactor = event.deltaY > 0 ? 0.9 : 1.1;
+                this.scale *= scaleFactor;
+
+                const newScreenPos = this.worldToScreen(worldPos.x, worldPos.y);
+                this.offsetX += mouseX - newScreenPos.x;
+                this.offsetY += mouseY - newScreenPos.y;
+
+                this.draw();
+            }
+
+            findPadAtPosition(x, y) {
+                return this.pads.find(pad => {
+                    return x >= pad.x - pad.width / 2 &&
+                        x <= pad.x + pad.width / 2 &&
+                        y >= pad.y - pad.height / 2 &&
+                        y <= pad.y + pad.height / 2;
+                });
+            }
+
+            showTooltip(pad, x, y) {
+                this.tooltip.innerHTML = `
+                    <div><strong>PAD ${pad.number}</strong></div>
+                    <div>名称: ${pad.name}</div>
+                    <div>位置: (${pad.x.toFixed(1)}, ${pad.y.toFixed(1)})</div>
+                    <div>尺寸: ${pad.width.toFixed(1)} × ${pad.height.toFixed(1)}</div>
+                `;
+                this.tooltip.style.left = (x + 10) + 'px';
+                this.tooltip.style.top = (y - 10) + 'px';
+                this.tooltip.style.display = 'block';
+            }
+
+            hideTooltip() {
+                this.tooltip.style.display = 'none';
+            }
+
+            exportToImage() {
+                const scale = 3;
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = this.canvas.width * scale;
+                exportCanvas.height = this.canvas.height * scale;
+                const exportCtx = exportCanvas.getContext('2d');
+                exportCtx.scale(scale, scale);
+
+                const oldCtx = this.ctx;
+                const oldCanvas = this.canvas;
+                this.canvas = exportCanvas;
+                this.ctx = exportCtx;
+                this.draw();
+                this.canvas = oldCanvas;
+                this.ctx = oldCtx;
+
+                exportCanvas.toBlob(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'chip_layout.png';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                }, 'image/png');
+            }
+
+            exportToPDF() {
+                if (typeof window.jspdf === 'undefined' && typeof window.jsPDF === 'undefined') {
+                    alert('请先引入jsPDF库');
+                    return;
+                }
+                const scale = 3;
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = this.canvas.width * scale;
+                exportCanvas.height = this.canvas.height * scale;
+                const exportCtx = exportCanvas.getContext('2d');
+                exportCtx.scale(scale, scale);
+
+                const oldCtx = this.ctx;
+                const oldCanvas = this.canvas;
+                this.canvas = exportCanvas;
+                this.ctx = exportCtx;
+                this.draw();
+                this.canvas = oldCanvas;
+                this.ctx = oldCtx;
+
+                const imgData = exportCanvas.toDataURL('image/png');
+                const pdf = window.jspdf ? new window.jspdf.jsPDF({ orientation: 'landscape' }) : new window.jsPDF({ orientation: 'landscape' });
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                const aspect = exportCanvas.width / exportCanvas.height;
+                let w = pdfWidth, h = pdfWidth / aspect;
+                if (h > pdfHeight) {
+                    h = pdfHeight;
+                    w = h * aspect;
+                }
+                pdf.addImage(imgData, 'PNG', 0, 0, w, h);
+                pdf.save('chip_layout.pdf');
+            }
+
+            exportPadLSP() {
+                let lspFileName = 'pad_layout.lsp';
+                if (this.lastExcelFileName) {
+                    lspFileName = this.lastExcelFileName.replace(/\.[^.]+$/, '_pads.lsp');
+                }
+
+                const centerX = this.chipSizeX / 2;
+                const centerY = this.chipSizeY / 2;
+
+                let lsp = "(defun c:gd ( / oldlayer ssnew basept targetpt e ed padlast padent )\n";
+                lsp += "  (setq oldlayer (getvar \"CLAYER\"))\n";
+                lsp += "  ;; Create 'die1' layer and set to color 4 (cyan) if not exist\n";
+                lsp += "  (if (not (tblsearch \"LAYER\" \"die1\"))\n";
+                lsp += "    (command \"LAYER\" \"N\" \"die1\" \"C\" \"4\" \"die1\" \"\")\n";
+                lsp += "  )\n";
+                lsp += "  ;; Create 'pad name' layer and set to color 5 (blue) if not exist, and make it hidden\n";
+                lsp += "  (if (not (tblsearch \"LAYER\" \"pad name\"))\n";
+                lsp += "    (command \"LAYER\" \"N\" \"pad name\" \"C\" \"5\" \"pad name\" \"OFF\" \"pad name\" \"\")\n";
+                lsp += "  )\n";
+                lsp += "  ;; Create 'pad no' layer and set to color 6 (magenta) if not exist\n";
+                lsp += "  (if (not (tblsearch \"LAYER\" \"pad no\"))\n";
+                lsp += "    (command \"LAYER\" \"N\" \"pad no\" \"C\" \"6\" \"pad no\" \"\")\n";
+                lsp += "  )\n";
+                lsp += "  (setvar \"CLAYER\" \"die1\")\n";
+                lsp += "  ;; Record last entity\n";
+                lsp += "  (setq lastent (entlast))\n";
+                lsp += `  (command \"_rectang\" '(0 0) '(${this.chipSizeX} ${this.chipSizeY}))\n`;
+
+                this.pads.forEach(pad => {
+                    const x1 = pad.x - pad.width / 2;
+                    const y1 = pad.y - pad.height / 2;
+                    const x2 = pad.x + pad.width / 2;
+                    const y2 = pad.y + pad.height / 2;
+                    const isVSS = /VSS|VREFN/i.test(pad.name);
+
+                    // 绘制PAD矩形，VSS用绿色
+                    if (isVSS) {
+                        lsp += `  (setq padlast (entlast))\n`;
+                        lsp += `  (command \"_rectang\" '(${x1} ${y1}) '(${x2} ${y2}))\n`;
+                        lsp += `  (setq padent (entnext padlast))\n`;
+                        lsp += `  (while padent (progn (setq ed (entget padent)) (if (assoc 62 ed) (setq ed (subst (cons 62 3) (assoc 62 ed) ed)) (setq ed (append ed (list (cons 62 3))))) (entmod ed) (setq padent nil)))\n`;
+                    } else {
+                        lsp += `  (command \"_rectang\" '(${x1} ${y1}) '(${x2} ${y2}))\n`;
+                    }
+
+                    // 切换到pad no图层并绘制PAD编号
+                    lsp += `  (setvar \"CLAYER\" \"pad no\")\n`;
+                    if (isVSS) {
+                        lsp += `  (command \"_text\" \"J\" \"MC\" '(${pad.x} ${pad.y}) ${Math.min(pad.width, pad.height) * 0.5} 0 \"${pad.number}\")\n`;
+                        lsp += `  (setq e (entlast)) (setq ed (entget e)) (if (assoc 62 ed) (setq ed (subst (cons 62 3) (assoc 62 ed) ed)) (setq ed (append ed (list (cons 62 3))))) (entmod ed)\n`;
+                    } else {
+                        lsp += `  (command \"_text\" \"J\" \"MC\" '(${pad.x} ${pad.y}) ${Math.min(pad.width, pad.height) * 0.5} 0 \"${pad.number}\")\n`;
+                    }
+
+                    // 切换到pad name图层并绘制PAD名称
+                    lsp += `  (setvar \"CLAYER\" \"pad name\")\n`;
+                    // 确保PAD名称没有多余的空格
+                    const cleanPadName = pad.name.trim();
+                    if (isVSS) {
+                        lsp += `  (command \"_text\" \"J\" \"MC\" '(${pad.x} ${pad.y}) 12 0 \"${cleanPadName}\")\n`;
+                        lsp += `  (setq e (entlast)) (setq ed (entget e)) (if (assoc 62 ed) (setq ed (subst (cons 62 3) (assoc 62 ed) ed)) (setq ed (append ed (list (cons 62 3))))) (entmod ed)\n`;
+                    } else {
+                        lsp += `  (command \"_text\" \"J\" \"MC\" '(${pad.x} ${pad.y}) 12 0 \"${cleanPadName}\")\n`;
+                    }
+                    // 切换回die1图层
+                    lsp += `  (setvar \"CLAYER\" \"die1\")\n`;
+                });
+
+                lsp += "  ;; Select all newly created objects for moving (including pad names)\n";
+                lsp += "  (setq ssnew (ssadd))\n";
+                lsp += "  (setq ent (entnext lastent))\n";
+                lsp += "  (while ent (progn (ssadd ent ssnew) (setq ent (entnext ent))))\n";
+                lsp += "  ;; Also select all objects on pad name and pad no layers\n";
+                lsp += "  (setq ss-padnames (ssget \"X\" (list (cons 8 \"pad name\"))))\n";
+                lsp += "  (if ss-padnames\n";
+                lsp += "    (progn\n";
+                lsp += "      (setq i 0)\n";
+                lsp += "      (while (< i (sslength ss-padnames))\n";
+                lsp += "        (ssadd (ssname ss-padnames i) ssnew)\n";
+                lsp += "        (setq i (+ i 1))\n";
+                lsp += "      )\n";
+                lsp += "    )\n";
+                lsp += "  )\n";
+                lsp += "  (setq ss-padnos (ssget \"X\" (list (cons 8 \"pad no\"))))\n";
+                lsp += "  (if ss-padnos\n";
+                lsp += "    (progn\n";
+                lsp += "      (setq i 0)\n";
+                lsp += "      (while (< i (sslength ss-padnos))\n";
+                lsp += "        (ssadd (ssname ss-padnos i) ssnew)\n";
+                lsp += "        (setq i (+ i 1))\n";
+                lsp += "      )\n";
+                lsp += "    )\n";
+                lsp += "  )\n";
+                lsp += "  ;; Use standard MOVE command for interactive movement\n";
+                lsp += '  (princ "\\nPlease select a base point and then move the die to desired location...")\n';
+                lsp += '  (command "_move" ssnew "" pause pause)\n';
+                lsp += '  (princ "\n--- Drawing completed on die1 layer ---\n")\n';
+                lsp += "  ;; Restore original layer at the end\n";
+                lsp += "  (setvar \"CLAYER\" oldlayer)\n";
+                lsp += ")\n(princ)\n";
+
+                const blob = new Blob([lsp], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = lspFileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            exportD2PadLSP() {
+                if (!this.hasD2Chip || this.d2Pads.length === 0) {
+                    alert('没有D2芯片数据可导出');
+                    return;
+                }
+
+                let lspFileName = 'd2_pad_layout.lsp';
+                if (this.lastExcelFileName) {
+                    lspFileName = this.lastExcelFileName.replace(/\.[^.]+$/, '_d2_pads.lsp');
+                }
+
+                let lsp = "(defun c:gd2 ( / oldlayer ssnew basept targetpt e ed padlast padent )\n";
+                lsp += "  (setq oldlayer (getvar \"CLAYER\"))\n";
+                lsp += "  ;; Create 'die2' layer and set to color 4 (cyan) if not exist\n";
+                lsp += "  (if (not (tblsearch \"LAYER\" \"die2\"))\n";
+                lsp += "    (command \"LAYER\" \"N\" \"die2\" \"C\" \"4\" \"die2\" \"\")\n";
+                lsp += "  )\n";
+                lsp += "  ;; Create 'pad name' layer and set to color 5 (blue) if not exist, and make it hidden\n";
+                lsp += "  (if (not (tblsearch \"LAYER\" \"pad name\"))\n";
+                lsp += "    (command \"LAYER\" \"N\" \"pad name\" \"C\" \"5\" \"pad name\" \"OFF\" \"pad name\" \"\")\n";
+                lsp += "  )\n";
+                lsp += "  ;; Create 'pad no' layer and set to color 6 (magenta) if not exist\n";
+                lsp += "  (if (not (tblsearch \"LAYER\" \"pad no\"))\n";
+                lsp += "    (command \"LAYER\" \"N\" \"pad no\" \"C\" \"6\" \"pad no\" \"\")\n";
+                lsp += "  )\n";
+                lsp += "  (setvar \"CLAYER\" \"die2\")\n";
+                lsp += "  ;; Record last entity\n";
+                lsp += "  (setq lastent (entlast))\n";
+                lsp += `  (command \"_rectang\" '(0 0) '(${this.d2ChipSizeX} ${this.d2ChipSizeY}))\n`;
+
+                this.d2Pads.forEach(pad => {
+                    const x1 = pad.x - pad.width / 2;
+                    const y1 = pad.y - pad.height / 2;
+                    const x2 = pad.x + pad.width / 2;
+                    const y2 = pad.y + pad.height / 2;
+                    const isVSS = /VSS|VREFN/i.test(pad.name);
+
+                    // D2的PAD编号格式：D2.1, D2.2等
+                    const d2PadNumber = `D2.${pad.number}`;
+                    // PAD名称去掉冒号
+                    const cleanPadName = pad.name.replace(/:$/, '').trim();
+
+                    // 绘制PAD矩形，VSS用绿色
+                    if (isVSS) {
+                        lsp += `  (setq padlast (entlast))\n`;
+                        lsp += `  (command \"_rectang\" '(${x1} ${y1}) '(${x2} ${y2}))\n`;
+                        lsp += `  (setq padent (entnext padlast))\n`;
+                        lsp += `  (while padent (progn (setq ed (entget padent)) (if (assoc 62 ed) (setq ed (subst (cons 62 3) (assoc 62 ed) ed)) (setq ed (append ed (list (cons 62 3))))) (entmod ed) (setq padent nil)))\n`;
+                    } else {
+                        lsp += `  (command \"_rectang\" '(${x1} ${y1}) '(${x2} ${y2}))\n`;
+                    }
+
+                    // 切换到pad no图层并绘制PAD编号（D2.1格式）
+                    lsp += `  (setvar \"CLAYER\" \"pad no\")\n`;
+                    if (isVSS) {
+                        lsp += `  (command \"_text\" \"J\" \"MC\" '(${pad.x} ${pad.y}) ${Math.min(pad.width, pad.height) * 0.5} 0 \"${d2PadNumber}\")\n`;
+                        lsp += `  (setq e (entlast)) (setq ed (entget e)) (if (assoc 62 ed) (setq ed (subst (cons 62 3) (assoc 62 ed) ed)) (setq ed (append ed (list (cons 62 3))))) (entmod ed)\n`;
+                    } else {
+                        lsp += `  (command \"_text\" \"J\" \"MC\" '(${pad.x} ${pad.y}) ${Math.min(pad.width, pad.height) * 0.5} 0 \"${d2PadNumber}\")\n`;
+                    }
+
+                    // 切换到pad name图层并绘制PAD名称（去掉冒号）
+                    lsp += `  (setvar \"CLAYER\" \"pad name\")\n`;
+                    if (isVSS) {
+                        lsp += `  (command \"_text\" \"J\" \"MC\" '(${pad.x} ${pad.y}) 12 0 \"${cleanPadName}\")\n`;
+                        lsp += `  (setq e (entlast)) (setq ed (entget e)) (if (assoc 62 ed) (setq ed (subst (cons 62 3) (assoc 62 ed) ed)) (setq ed (append ed (list (cons 62 3))))) (entmod ed)\n`;
+                    } else {
+                        lsp += `  (command \"_text\" \"J\" \"MC\" '(${pad.x} ${pad.y}) 12 0 \"${cleanPadName}\")\n`;
+                    }
+                    // 切换回die2图层
+                    lsp += `  (setvar \"CLAYER\" \"die2\")\n`;
+                });
+
+                lsp += "  ;; Select all newly created D2 objects (die2 layer + pad name/no created after lastent)\n";
+                lsp += "  (setq ssnew (ssadd))\n";
+                lsp += "  (setq ent (entnext lastent))\n";
+                lsp += "  (while ent (progn (ssadd ent ssnew) (setq ent (entnext ent))))\n";
+                lsp += "  ;; Use standard MOVE command for interactive movement\n";
+                lsp += '  (princ "\\nPlease select a base point and then move the D2 die to desired location...")\n';
+                lsp += '  (command "_move" ssnew "" pause pause)\n';
+                lsp += '  (princ "\n--- D2 Drawing completed on die2 layer ---\n")\n';
+                lsp += "  ;; Restore original layer at the end\n";
+                lsp += "  (setvar \"CLAYER\" oldlayer)\n";
+                lsp += ")\n(princ)\n";
+
+                const blob = new Blob([lsp], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = lspFileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+
+            exportWireLSP() {
+                let lspFileName = 'wire_connections.lsp';
+                if (this.lastExcelFileName) {
+                    lspFileName = this.lastExcelFileName.replace(/\.[^.]+$/, '_wires.lsp');
+                }
+
+                let lsp = `;; Wire Drawing Script
+;; Generated automatically from Excel data
+;; This script draws lines between pins and pads based on connection data
+
+(defun c:drawwires ()
+  (setq oldlayer (getvar "CLAYER"))
+  
+  ;; Create or set the wire layer
+  (if (not (tblsearch "LAYER" "wire"))
+    (command "LAYER" "N" "wire" "C" "2" "wire" "")
+  )
+  (setvar "CLAYER" "wire")
+  
+  (princ "\\nStarting wire drawing process...")
+  (setq error-count 0)
+  (setq success-count 0)
+  
+`;
+
+                this.wireConnections.forEach(conn => {
+                    // 创建pin号的大小写变体
+                    const pinLower = conn.pin.toLowerCase();
+                    const pinUpper = conn.pin.toUpperCase();
+
+                    // 如果pin以p或P开头，创建另一种大小写变体
+                    let pinAlt = null;
+                    if (conn.pin.startsWith('p')) {
+                        pinAlt = 'P' + conn.pin.substring(1);
+                    } else if (conn.pin.startsWith('P')) {
+                        pinAlt = 'p' + conn.pin.substring(1);
+                    }
+
+                    lsp += `
+  ;; Process PIN ${conn.pin} to PAD ${conn.pad}
+  (setq pin-text "${conn.pin}")
+  (setq pad-text "${conn.pad}")
+  (setq pin-coord nil)
+ 
+  
+  ;; Find PIN text and get coordinates (case-insensitive)
+  ;; Create case variations of the pin text
+  (setq pin-text-lower (strcase pin-text nil))  ;; Convert to lowercase (e.g., "p1")
+  (setq pin-text-upper (strcase pin-text))      ;; Convert to uppercase (e.g., "P1")
+  
+  ;; If pin text starts with "p" or "P", also try the other case version
+  (if (= (substr pin-text 1 1) "p")
+      (setq pin-text-alt (strcat "P" (substr pin-text 2)))
+      (if (= (substr pin-text 1 1) "P")
+          (setq pin-text-alt (strcat "p" (substr pin-text 2)))
+          (setq pin-text-alt nil)
+      )
+  )
+  
+  ;; Try with original text
+  (setq ss-pin (ssget "X" (list (cons 0 "TEXT") (cons 1 pin-text))))
+  (if (not ss-pin)
+    (setq ss-pin (ssget "X" (list (cons 0 "MTEXT") (cons 1 pin-text))))
+  )
+  
+  ;; Try with uppercase version if not found
+  (if (not ss-pin)
+    (setq ss-pin (ssget "X" (list (cons 0 "TEXT") (cons 1 pin-text-upper))))
+  )
+  (if (not ss-pin)
+    (setq ss-pin (ssget "X" (list (cons 0 "MTEXT") (cons 1 pin-text-upper))))
+  )
+  
+  ;; Try with lowercase version if still not found
+  (if (not ss-pin)
+    (setq ss-pin (ssget "X" (list (cons 0 "TEXT") (cons 1 pin-text-lower))))
+  )
+  (if (not ss-pin)
+    (setq ss-pin (ssget "X" (list (cons 0 "MTEXT") (cons 1 pin-text-lower))))
+  )
+  
+  ;; Try with alternative p/P version if still not found
+  (if (and (not ss-pin) pin-text-alt)
+    (setq ss-pin (ssget "X" (list (cons 0 "TEXT") (cons 1 pin-text-alt))))
+  )
+  (if (and (not ss-pin) pin-text-alt)
+    (setq ss-pin (ssget "X" (list (cons 0 "MTEXT") (cons 1 pin-text-alt))))
+  )
+  (if ss-pin
+    (progn
+      (setq pin-ent (ssname ss-pin 0))
+      (setq pin-data (entget pin-ent))
+      (setq pin-coord (cdr (assoc 11 pin-data))) ;; 优先用对齐点（视觉中心）
+      (if (not pin-coord)
+        (setq pin-coord (cdr (assoc 10 pin-data))) ;; 没有则用插入点
+      )
+    )
+    (progn
+      (princ (strcat "\nWarning: PIN text '" pin-text "' not found"))
+      (setq error-count (+ error-count 1))
+    )
+  )
+  
+  ;; Find PAD text and get coordinates (搜索PAD编号，不是PAD名称)
+  (setq ss-pad (ssget "X" (list (cons 0 "TEXT") (cons 1 pad-text))))
+  (if (not ss-pad)
+    (setq ss-pad (ssget "X" (list (cons 0 "MTEXT") (cons 1 pad-text))))
+  )
+  (if ss-pad
+    (progn
+      (setq pad-ent (ssname ss-pad 0))
+      (setq pad-data (entget pad-ent))
+      (setq pad-coord (cdr (assoc 11 pad-data))) ;; 优先用对齐点（视觉中心）
+      (if (not pad-coord)
+        (setq pad-coord (cdr (assoc 10 pad-data))) ;; 没有则用插入点
+      )
+    )
+    (progn
+      (princ (strcat "\nWarning: PAD text '" pad-text "' not found"))
+      (setq error-count (+ error-count 1))
+    )
+  )
+  
+  ;; Draw line if both coordinates found
+  (if (and pin-coord pad-coord)
+    (progn
+      (entmakex (list (cons 0 "LINE") (cons 8 "wire") (cons 62 2) (cons 10 pin-coord) (cons 11 pad-coord)))
+      (setq success-count (+ success-count 1))
+      (princ (strcat "\nConnected " pin-text " to " pad-text))
+    )
+    (progn
+      (princ (strcat "\nFailed to connect " pin-text " to " pad-text))
+      (setq error-count (+ error-count 1))
+    )
+  )
+`;
+                });
+
+                // 添加PAD to PAD连线生成逻辑
+                if (this.padToPadConnections && this.padToPadConnections.length > 0) {
+                    lsp += `
+  ;; Process PAD to PAD connections
+  (princ "\\nProcessing PAD to PAD connections...")
+`;
+
+                    this.padToPadConnections.forEach(conn => {
+                        if (conn.type === 'die1-to-die1') {
+                            // die1内部的pad to pad连线
+                            lsp += `
+  ;; PAD ${conn.pad1} to PAD ${conn.pad2} (die1 to die1)
+  (setq pad1-text "${conn.pad1}")
+  (setq pad2-text "${conn.pad2}")
+  (setq pad1-coord nil)
+  (setq pad2-coord nil)
+  
+  ;; Find PAD1 number text
+  (setq ss-pad1 (ssget "X" (list (cons 0 "TEXT") (cons 1 pad1-text) (cons 8 "pad no"))))
+  (if (not ss-pad1) (setq ss-pad1 (ssget "X" (list (cons 0 "MTEXT") (cons 1 pad1-text) (cons 8 "pad no")))))
+  (if (not ss-pad1) (setq ss-pad1 (ssget "X" (list (cons 0 "TEXT") (cons 1 pad1-text)))))
+  (if (not ss-pad1) (setq ss-pad1 (ssget "X" (list (cons 0 "MTEXT") (cons 1 pad1-text)))))
+  
+  (if ss-pad1
+    (progn
+      (setq pad1-ent (ssname ss-pad1 0))
+      (setq pad1-data (entget pad1-ent))
+      (setq pad1-coord (cdr (assoc 11 pad1-data)))
+      (if (not pad1-coord) (setq pad1-coord (cdr (assoc 10 pad1-data))))
+    )
+  )
+  
+  ;; Find PAD2 number text
+  (setq ss-pad2 (ssget "X" (list (cons 0 "TEXT") (cons 1 pad2-text) (cons 8 "pad no"))))
+  (if (not ss-pad2) (setq ss-pad2 (ssget "X" (list (cons 0 "MTEXT") (cons 1 pad2-text) (cons 8 "pad no")))))
+  (if (not ss-pad2) (setq ss-pad2 (ssget "X" (list (cons 0 "TEXT") (cons 1 pad2-text)))))
+  (if (not ss-pad2) (setq ss-pad2 (ssget "X" (list (cons 0 "MTEXT") (cons 1 pad2-text)))))
+  
+  (if ss-pad2
+    (progn
+      (setq pad2-ent (ssname ss-pad2 0))
+      (setq pad2-data (entget pad2-ent))
+      (setq pad2-coord (cdr (assoc 11 pad2-data)))
+      (if (not pad2-coord) (setq pad2-coord (cdr (assoc 10 pad2-data))))
+    )
+  )
+  
+  ;; Draw line if both coordinates found
+  (if (and pad1-coord pad2-coord)
+    (progn
+      (entmakex (list (cons 0 "LINE") (cons 8 "wire") (cons 62 2) (cons 10 pad1-coord) (cons 11 pad2-coord)))
+      (setq success-count (+ success-count 1))
+      (princ "\\nPAD ${conn.pad1} to PAD ${conn.pad2} connected")
+    )
+    (progn
+      (princ "\\nWarning: Failed to connect PAD ${conn.pad1} to PAD ${conn.pad2}")
+      (setq error-count (+ error-count 1))
+    )
+  )
+`;
+                        } else if (conn.type === 'die1-to-die2') {
+                            // die1到die2的连线，需要在D2中查找对应的pad
+                            const searchText = conn.d2SearchText.toUpperCase();
+                            const d2Pad = this.d2Pads.find(p => {
+                                const padName = p.name.replace(/:$/, '').trim().toUpperCase();
+                                // 只要搜索文本包含pad name就算匹配
+                                return searchText.includes(padName);
+                            });
+
+                            if (d2Pad) {
+                                const d2PadNumber = `D2.${d2Pad.number}`;
+                                lsp += `
+  ;; PAD ${conn.pad1} to D2 PAD ${d2Pad.number} (die1 to die2, search: ${conn.d2SearchText})
+  (setq pad1-text "${conn.pad1}")
+  (setq pad2-text "${d2PadNumber}")
+  (setq pad1-coord nil)
+  (setq pad2-coord nil)
+  
+  ;; Find die1 PAD number text
+  (setq ss-pad1 (ssget "X" (list (cons 0 "TEXT") (cons 1 pad1-text) (cons 8 "pad no"))))
+  (if (not ss-pad1) (setq ss-pad1 (ssget "X" (list (cons 0 "MTEXT") (cons 1 pad1-text) (cons 8 "pad no")))))
+  (if (not ss-pad1) (setq ss-pad1 (ssget "X" (list (cons 0 "TEXT") (cons 1 pad1-text)))))
+  (if (not ss-pad1) (setq ss-pad1 (ssget "X" (list (cons 0 "MTEXT") (cons 1 pad1-text)))))
+  
+  (if ss-pad1
+    (progn
+      (setq pad1-ent (ssname ss-pad1 0))
+      (setq pad1-data (entget pad1-ent))
+      (setq pad1-coord (cdr (assoc 11 pad1-data)))
+      (if (not pad1-coord) (setq pad1-coord (cdr (assoc 10 pad1-data))))
+    )
+  )
+  
+  ;; Find D2 PAD number text
+  (setq ss-pad2 (ssget "X" (list (cons 0 "TEXT") (cons 1 pad2-text) (cons 8 "pad no"))))
+  (if (not ss-pad2) (setq ss-pad2 (ssget "X" (list (cons 0 "MTEXT") (cons 1 pad2-text) (cons 8 "pad no")))))
+  (if (not ss-pad2) (setq ss-pad2 (ssget "X" (list (cons 0 "TEXT") (cons 1 pad2-text)))))
+  (if (not ss-pad2) (setq ss-pad2 (ssget "X" (list (cons 0 "MTEXT") (cons 1 pad2-text)))))
+  
+  (if ss-pad2
+    (progn
+      (setq pad2-ent (ssname ss-pad2 0))
+      (setq pad2-data (entget pad2-ent))
+      (setq pad2-coord (cdr (assoc 11 pad2-data)))
+      (if (not pad2-coord) (setq pad2-coord (cdr (assoc 10 pad2-data))))
+    )
+  )
+  
+  ;; Draw line if both coordinates found
+  (if (and pad1-coord pad2-coord)
+    (progn
+      (entmakex (list (cons 0 "LINE") (cons 8 "wire") (cons 62 2) (cons 10 pad1-coord) (cons 11 pad2-coord)))
+      (setq success-count (+ success-count 1))
+      (princ "\\nPAD ${conn.pad1} to D2.${d2Pad.number} connected")
+    )
+    (progn
+      (princ "\\nWarning: Failed to connect PAD ${conn.pad1} to D2.${d2Pad.number}")
+      (setq error-count (+ error-count 1))
+    )
+  )
+`;
+                            } else {
+                                console.warn(`未找到D2中匹配"${conn.d2SearchText}"的PAD`);
+                            }
+                        }
+                    });
+                }
+
+                // 添加L/F连线生成逻辑
+                if (this.lfConnections && this.lfConnections.length > 0) {
+                    lsp += `
+  ;; Process L/F connections (pad to L/F and pin to L/F)
+  (princ "\\nProcessing L/F connections...")
+`;
+
+                    this.lfConnections.forEach(conn => {
+                        if (conn.type === 'pad') {
+                            // pad to L/F: 找到对应的PAD编号，从PAD编号连1000um线
+                            const padText = conn.number.toString();
+                            const pad = this.pads.find(p => p.number.toString() === padText);
+
+                            if (pad) {
+                                // 计算PAD到四条边的距离
+                                const distToLeft = pad.x;
+                                const distToRight = this.chipSizeX - pad.x;
+                                const distToBottom = pad.y;
+                                const distToTop = this.chipSizeY - pad.y;
+
+                                // 找出最小距离，判断PAD在哪条边
+                                const minDist = Math.min(distToLeft, distToRight, distToBottom, distToTop);
+
+                                let direction = '';
+                                let offsetX = 0;
+                                let offsetY = 0;
+
+                                if (minDist === distToLeft) {
+                                    // 左边 -> 往左连线
+                                    direction = 'left';
+                                    offsetX = -1000;
+                                    offsetY = 0;
+                                } else if (minDist === distToRight) {
+                                    // 右边 -> 往右连线
+                                    direction = 'right';
+                                    offsetX = 1000;
+                                    offsetY = 0;
+                                } else if (minDist === distToBottom) {
+                                    // 下边 -> 往下连线
+                                    direction = 'bottom';
+                                    offsetX = 0;
+                                    offsetY = -1000;
+                                } else {
+                                    // 上边 -> 往上连线
+                                    direction = 'top';
+                                    offsetX = 0;
+                                    offsetY = 1000;
+                                }
+
+                                lsp += `
+  ;; PAD ${conn.number} to L/F (direction: ${direction}, offset: ${offsetX}, ${offsetY})
+  ;; Find PAD number text and draw line from it
+  (setq pad-text "${padText}")
+  (setq ss-pad (ssget "X" (list (cons 0 "TEXT") (cons 1 pad-text) (cons 8 "pad no"))))
+  (if (not ss-pad) (setq ss-pad (ssget "X" (list (cons 0 "MTEXT") (cons 1 pad-text) (cons 8 "pad no")))))
+  (if (not ss-pad) (setq ss-pad (ssget "X" (list (cons 0 "TEXT") (cons 1 pad-text)))))
+  (if (not ss-pad) (setq ss-pad (ssget "X" (list (cons 0 "MTEXT") (cons 1 pad-text)))))
+  
+  (if ss-pad
+    (progn
+      (setq pad-ent (ssname ss-pad 0))
+      (setq pad-data (entget pad-ent))
+      (setq pad-coord (cdr (assoc 11 pad-data)))
+      (if (not pad-coord) (setq pad-coord (cdr (assoc 10 pad-data))))
+      
+      ;; Get PAD coordinates
+      (setq pad-x (car pad-coord))
+      (setq pad-y (cadr pad-coord))
+      (setq pad-z (caddr pad-coord))
+      
+      ;; Calculate end point: direction is ${direction}
+      (setq end-x (+ pad-x ${offsetX}))
+      (setq end-y (+ pad-y ${offsetY}))
+      
+      (entmakex (list (cons 0 "LINE") (cons 8 "wire") (cons 62 3) (cons 10 pad-coord) (cons 11 (list end-x end-y pad-z))))
+      (setq success-count (+ success-count 1))
+      (princ "\\nPAD ${conn.number} to L/F connected (${direction})")
+    )
+    (progn
+      (princ "\\nWarning: PAD number ${conn.number} not found for L/F connection")
+      (setq error-count (+ error-count 1))
+    )
+  )
+`;
+                            }
+                        } else if (conn.type === 'pin') {
+                            // pin to L/F: 从PIN连1000um线，根据PIN编号分组判断方向
+                            const pinNumber = parseInt(conn.number);
+                            const totalPins = this.totalPinCount || 144; // 默认144个PIN
+                            const pinsPerSide = Math.floor(totalPins / 4);
+
+                            // 判断PIN在哪一边
+                            let direction = '';
+                            let offsetX = 0;
+                            let offsetY = 0;
+
+                            if (pinNumber >= 1 && pinNumber <= pinsPerSide) {
+                                // 第1组：左边的PIN，往右连线
+                                direction = 'right (from left)';
+                                offsetX = 1000;
+                                offsetY = 0;
+                            } else if (pinNumber > pinsPerSide && pinNumber <= pinsPerSide * 2) {
+                                // 第2组：下面的PIN，往上连线
+                                direction = 'up (from bottom)';
+                                offsetX = 0;
+                                offsetY = 1000;
+                            } else if (pinNumber > pinsPerSide * 2 && pinNumber <= pinsPerSide * 3) {
+                                // 第3组：右边的PIN，往左连线
+                                direction = 'left (from right)';
+                                offsetX = -1000;
+                                offsetY = 0;
+                            } else {
+                                // 第4组：上面的PIN，往下连线
+                                direction = 'down (from top)';
+                                offsetX = 0;
+                                offsetY = -1000;
+                            }
+
+                            const pinText = `p${conn.number}`;
+
+                            lsp += `
+  ;; PIN ${conn.number} to L/F (total pins: ${totalPins}, group: ${Math.ceil(pinNumber / pinsPerSide)})
+  (setq pin-text "${pinText}")
+  (setq pin-coord nil)
+  
+  ;; Find PIN text (case-insensitive)
+  (setq pin-text-lower (strcase pin-text nil))
+  (setq pin-text-upper (strcase pin-text))
+  (setq pin-text-alt (strcat "P" (substr pin-text 2)))
+  
+  (setq ss-pin (ssget "X" (list (cons 0 "TEXT") (cons 1 pin-text))))
+  (if (not ss-pin) (setq ss-pin (ssget "X" (list (cons 0 "MTEXT") (cons 1 pin-text)))))
+  (if (not ss-pin) (setq ss-pin (ssget "X" (list (cons 0 "TEXT") (cons 1 pin-text-upper)))))
+  (if (not ss-pin) (setq ss-pin (ssget "X" (list (cons 0 "MTEXT") (cons 1 pin-text-upper)))))
+  (if (not ss-pin) (setq ss-pin (ssget "X" (list (cons 0 "TEXT") (cons 1 pin-text-lower)))))
+  (if (not ss-pin) (setq ss-pin (ssget "X" (list (cons 0 "MTEXT") (cons 1 pin-text-lower)))))
+  (if (not ss-pin) (setq ss-pin (ssget "X" (list (cons 0 "TEXT") (cons 1 pin-text-alt)))))
+  (if (not ss-pin) (setq ss-pin (ssget "X" (list (cons 0 "MTEXT") (cons 1 pin-text-alt)))))
+  
+  (if ss-pin
+    (progn
+      (setq pin-ent (ssname ss-pin 0))
+      (setq pin-data (entget pin-ent))
+      (setq pin-coord (cdr (assoc 11 pin-data)))
+      (if (not pin-coord) (setq pin-coord (cdr (assoc 10 pin-data))))
+      
+      (setq pin-x (car pin-coord))
+      (setq pin-y (cadr pin-coord))
+      (setq pin-z (caddr pin-coord))
+      
+      ;; 根据PIN编号分组计算方向
+      (setq end-x (+ pin-x ${offsetX}))
+      (setq end-y (+ pin-y ${offsetY}))
+      
+      (entmakex (list (cons 0 "LINE") (cons 8 "wire") (cons 62 3) (cons 10 pin-coord) (cons 11 (list end-x end-y pin-z))))
+      (setq success-count (+ success-count 1))
+      (princ "\\nPIN ${conn.number} to L/F connected (${direction})")
+    )
+    (progn
+      (princ "\\nWarning: PIN ${conn.number} not found for L/F connection")
+      (setq error-count (+ error-count 1))
+    )
+  )
+`;
+                        }
+                    });
+                }
+
+                // 检查是否有L/F连线
+                const hasLFConnections = this.lfConnections && this.lfConnections.length > 0;
+
+                lsp += `
+  ;; Restore original layer
+  (setvar "CLAYER" oldlayer)
+
+  ;; Report results
+  (princ (strcat "\nWire drawing completed!"))
+  (princ (strcat "\nSuccessful connections: " (itoa success-count)))
+  (princ (strcat "\nErrors/warnings: " (itoa error-count)))
+  (princ "\nAll wires have been placed on layer 'wire'")
+`;
+
+                // 如果有L/F连线，添加选中绿色线的代码
+                if (hasLFConnections) {
+                    lsp += `
+  
+  ;; Select all green L/F wires (color 3) on wire layer
+  (princ "\\nSelecting all L/F connections (green wires)...")
+  (setq ss-lf (ssget "X" (list (cons 0 "LINE") (cons 8 "wire") (cons 62 3))))
+  (if ss-lf
+    (progn
+      (sssetfirst nil ss-lf)
+      (princ (strcat "\\n" (itoa (sslength ss-lf)) " L/F connections selected (green wires)"))
+    )
+    (princ "\\nNo L/F connections found to select")
+  )
+`;
+                }
+
+                lsp += `
+  (princ)
+)
+
+;; Load message
+(princ "\\nWire Drawing Script Loaded!")
+(princ "\\nType 'drawwires' to execute the wire drawing process.")
+(princ)
+`;
+
+                const blob = new Blob([lsp], { type: 'text/plain' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = lspFileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }
+        }
+
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', () => {
+            new IntegratedChipTool();
+        });
+    </script>
+</body>
+
+</html>
