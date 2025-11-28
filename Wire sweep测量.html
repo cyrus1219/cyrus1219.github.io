@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wire Bonding Sweep 测量工具</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .canvas-container {
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        
+        #canvas-f8a2b3c4 {
+            cursor: crosshair;
+        }
+        
+        .measurement-text {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <div class="bg-white rounded-lg shadow-lg p-6">
+            <h1 id="title-d5e6f7g8" class="text-3xl font-bold text-center text-gray-800 mb-8">
+                Wire Bonding Sweep 测量工具
+            </h1>
+            
+            <!-- 操作指引 -->
+            <div id="instructions-h9i0j1k2" class="bg-blue-50 border-l-4 border-blue-400 p-4 mb-6">
+                <h3 class="text-lg font-semibold text-blue-800 mb-2">操作指引：</h3>
+                <ol class="list-decimal list-inside text-blue-700 space-y-1">
+                    <li>点击"选择文件"上传X-ray照片</li>
+                    <li>在图片上点击两个点绘制原始bonding线（红色）</li>
+                    <li>点击"复制线条"创建可移动的测量线（蓝色）</li>
+                    <li>拖动蓝色线条到目标位置</li>
+                    <li>系统自动计算并显示wire sweep百分比</li>
+                    <li>使用鼠标滚轮缩放图片，拖动图片移动视图</li>
+                </ol>
+            </div>
+            
+            <!-- 控制面板 -->
+            <div id="controls-l3m4n5o6" class="flex flex-wrap gap-4 mb-6">
+                <input type="file" id="fileInput-p7q8r9s0" accept="image/*" 
+                       class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100">
+                
+                <button id="copyLineBtn-t1u2v3w4" 
+                        class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                        disabled>
+                    复制线条
+                </button>
+                
+                <button id="clearBtn-x5y6z7a8" 
+                        class="px-4 py-2 bg-red-500 text-white rounded hover:bg-red-600">
+                    清除所有线条
+                </button>
+                
+                <button id="resetViewBtn-b9c0d1e2" 
+                        class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                    重置视图
+                </button>
+            </div>
+            
+            <!-- 状态显示 -->
+            <div id="status-f3g4h5i6" class="mb-4">
+                <span id="statusText-j7k8l9m0" class="text-gray-600">请上传X-ray照片开始测量</span>
+            </div>
+            
+            <!-- Canvas容器 -->
+            <div id="canvasContainer-n1o2p3q4" class="canvas-container w-full h-96 bg-gray-50">
+                <canvas id="canvas-f8a2b3c4" class="w-full h-full"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class WireSweepMeasurer {
+            constructor() {
+                this.canvas = document.getElementById('canvas-f8a2b3c4');
+                this.ctx = this.canvas.getContext('2d');
+                this.fileInput = document.getElementById('fileInput-p7q8r9s0');
+                this.copyLineBtn = document.getElementById('copyLineBtn-t1u2v3w4');
+                this.clearBtn = document.getElementById('clearBtn-x5y6z7a8');
+                this.resetViewBtn = document.getElementById('resetViewBtn-b9c0d1e2');
+                this.statusText = document.getElementById('statusText-j7k8l9m0');
+                this.canvasContainer = document.getElementById('canvasContainer-n1o2p3q4');
+                
+                this.image = null;
+                this.scale = 1;
+                this.offsetX = 0;
+                this.offsetY = 0;
+                this.isDragging = false;
+                this.dragStart = { x: 0, y: 0 };
+                
+                this.originalLine = { points: [], complete: false };
+                this.copiedLines = [];
+                this.currentDrawingLine = null;
+                this.isDraggingLine = false;
+                this.draggedLineIndex = -1;
+                
+                this.initCanvas();
+                this.bindEvents();
+            }
+            
+            initCanvas() {
+                this.resizeCanvas();
+                window.addEventListener('resize', () => this.resizeCanvas());
+            }
+            
+            resizeCanvas() {
+                const rect = this.canvasContainer.getBoundingClientRect();
+                this.canvas.width = rect.width;
+                this.canvas.height = rect.height;
+                this.redraw();
+            }
+            
+            bindEvents() {
+                this.fileInput.addEventListener('change', (e) => this.loadImage(e));
+                this.copyLineBtn.addEventListener('click', () => this.copyOriginalLine());
+                this.clearBtn.addEventListener('click', () => this.clearAllLines());
+                this.resetViewBtn.addEventListener('click', () => this.resetView());
+                
+                this.canvas.addEventListener('mousedown', (e) => this.onMouseDown(e));
+                this.canvas.addEventListener('mousemove', (e) => this.onMouseMove(e));
+                this.canvas.addEventListener('mouseup', (e) => this.onMouseUp(e));
+                this.canvas.addEventListener('wheel', (e) => this.onWheel(e));
+            }
+            
+            loadImage(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    this.image = new Image();
+                    this.image.onload = () => {
+                        this.resetView();
+                        this.statusText.textContent = '图片已加载，请在图片上点击两个点绘制原始bonding线';
+                    };
+                    this.image.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            resetView() {
+                if (!this.image) return;
+                
+                const canvasAspect = this.canvas.width / this.canvas.height;
+                const imageAspect = this.image.width / this.image.height;
+                
+                if (imageAspect > canvasAspect) {
+                    this.scale = this.canvas.width / this.image.width;
+                } else {
+                    this.scale = this.canvas.height / this.image.height;
+                }
+                
+                this.offsetX = (this.canvas.width - this.image.width * this.scale) / 2;
+                this.offsetY = (this.canvas.height - this.image.height * this.scale) / 2;
+                
+                this.redraw();
+            }
+            
+            getMousePos(event) {
+                const rect = this.canvas.getBoundingClientRect();
+                return {
+                    x: (event.clientX - rect.left - this.offsetX) / this.scale,
+                    y: (event.clientY - rect.top - this.offsetY) / this.scale
+                };
+            }
+            
+            onMouseDown(event) {
+                if (!this.image) return;
+                
+                const pos = this.getMousePos(event);
+                
+                // 检查是否点击了复制的线条
+                const clickedLineIndex = this.getClickedLineIndex(pos);
+                if (clickedLineIndex !== -1) {
+                    this.isDraggingLine = true;
+                    this.draggedLineIndex = clickedLineIndex;
+                    this.dragStart = pos;
+                    this.canvas.style.cursor = 'move';
+                    return;
+                }
+                
+                // 如果原始线条未完成，添加点
+                if (!this.originalLine.complete) {
+                    this.originalLine.points.push(pos);
+                    if (this.originalLine.points.length === 2) {
+                        this.originalLine.complete = true;
+                        this.copyLineBtn.disabled = false;
+                        this.statusText.textContent = '原始bonding线已绘制完成，点击"复制线条"创建测量线';
+                    }
+                    this.redraw();
+                    return;
+                }
+                
+                // 开始拖动画布
+                this.isDragging = true;
+                this.dragStart = { x: event.clientX - this.offsetX, y: event.clientY - this.offsetY };
+                this.canvas.style.cursor = 'grabbing';
+            }
+            
+            onMouseMove(event) {
+                if (!this.image) return;
+                
+                if (this.isDraggingLine && this.draggedLineIndex !== -1) {
+                    const pos = this.getMousePos(event);
+                    const dx = pos.x - this.dragStart.x;
+                    const dy = pos.y - this.dragStart.y;
+                    
+                    // 移动选中的线条
+                    this.copiedLines[this.draggedLineIndex].points[0].x += dx;
+                    this.copiedLines[this.draggedLineIndex].points[0].y += dy;
+                    this.copiedLines[this.draggedLineIndex].points[1].x += dx;
+                    this.copiedLines[this.draggedLineIndex].points[1].y += dy;
+                    
+                    this.dragStart = pos;
+                    this.redraw();
+                    return;
+                }
+                
+                if (this.isDragging) {
+                    this.offsetX = event.clientX - this.dragStart.x;
+                    this.offsetY = event.clientY - this.dragStart.y;
+                    this.redraw();
+                }
+            }
+            
+            onMouseUp(event) {
+                this.isDragging = false;
+                this.isDraggingLine = false;
+                this.draggedLineIndex = -1;
+                this.canvas.style.cursor = 'crosshair';
+            }
+            
+            onWheel(event) {
+                event.preventDefault();
+                if (!this.image) return;
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const mouseX = event.clientX - rect.left;
+                const mouseY = event.clientY - rect.top;
+                
+                const scaleFactor = event.deltaY > 0 ? 0.9 : 1.1;
+                const newScale = Math.max(0.1, Math.min(5, this.scale * scaleFactor));
+                
+                // 以鼠标位置为中心缩放
+                this.offsetX = mouseX - (mouseX - this.offsetX) * (newScale / this.scale);
+                this.offsetY = mouseY - (mouseY - this.offsetY) * (newScale / this.scale);
+                this.scale = newScale;
+                
+                this.redraw();
+            }
+            
+            getClickedLineIndex(pos) {
+                for (let i = 0; i < this.copiedLines.length; i++) {
+                    const line = this.copiedLines[i];
+                    if (this.isPointNearLine(pos, line.points[0], line.points[1], 10)) {
+                        return i;
+                    }
+                }
+                return -1;
+            }
+            
+            isPointNearLine(point, lineStart, lineEnd, threshold) {
+                const A = point.x - lineStart.x;
+                const B = point.y - lineStart.y;
+                const C = lineEnd.x - lineStart.x;
+                const D = lineEnd.y - lineStart.y;
+                
+                const dot = A * C + B * D;
+                const lenSq = C * C + D * D;
+                
+                if (lenSq === 0) return Math.sqrt(A * A + B * B) <= threshold;
+                
+                const param = dot / lenSq;
+                
+                let xx, yy;
+                if (param < 0) {
+                    xx = lineStart.x;
+                    yy = lineStart.y;
+                } else if (param > 1) {
+                    xx = lineEnd.x;
+                    yy = lineEnd.y;
+                } else {
+                    xx = lineStart.x + param * C;
+                    yy = lineStart.y + param * D;
+                }
+                
+                const dx = point.x - xx;
+                const dy = point.y - yy;
+                return Math.sqrt(dx * dx + dy * dy) <= threshold;
+            }
+            
+            copyOriginalLine() {
+                if (!this.originalLine.complete) return;
+                
+                const copiedLine = {
+                    points: [
+                        { ...this.originalLine.points[0] },
+                        { ...this.originalLine.points[1] }
+                    ]
+                };
+                
+                this.copiedLines.push(copiedLine);
+                this.statusText.textContent = `已创建 ${this.copiedLines.length} 条测量线，拖动蓝色线条到目标位置`;
+                this.redraw();
+            }
+            
+            clearAllLines() {
+                this.originalLine = { points: [], complete: false };
+                this.copiedLines = [];
+                this.copyLineBtn.disabled = true;
+                this.statusText.textContent = '所有线条已清除，请重新绘制原始bonding线';
+                this.redraw();
+            }
+            
+            calculateDistance(p1, p2) {
+                return Math.sqrt(Math.pow(p2.x - p1.x, 2) + Math.pow(p2.y - p1.y, 2));
+            }
+            
+            calculatePerpendicularDistance(lineStart, lineEnd, point1, point2) {
+                // 计算两条平行线之间的垂直距离
+                const A = lineEnd.y - lineStart.y;
+                const B = lineStart.x - lineEnd.x;
+                const C1 = A * lineStart.x + B * lineStart.y;
+                const C2 = A * point1.x + B * point1.y;
+                
+                return Math.abs(C2 - C1) / Math.sqrt(A * A + B * B);
+            }
+            
+            redraw() {
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                
+                if (this.image) {
+                    this.ctx.save();
+                    this.ctx.translate(this.offsetX, this.offsetY);
+                    this.ctx.scale(this.scale, this.scale);
+                    this.ctx.drawImage(this.image, 0, 0);
+                    this.ctx.restore();
+                }
+                
+                // 绘制原始线条（红色）
+                if (this.originalLine.points.length > 0) {
+                    this.ctx.strokeStyle = '#ef4444';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.beginPath();
+                    
+                    if (this.originalLine.points.length === 1) {
+                        const p = this.transformPoint(this.originalLine.points[0]);
+                        this.ctx.arc(p.x, p.y, 3, 0, 2 * Math.PI);
+                        this.ctx.fill();
+                    } else if (this.originalLine.points.length === 2) {
+                        const p1 = this.transformPoint(this.originalLine.points[0]);
+                        const p2 = this.transformPoint(this.originalLine.points[1]);
+                        this.ctx.moveTo(p1.x, p1.y);
+                        this.ctx.lineTo(p2.x, p2.y);
+                    }
+                    this.ctx.stroke();
+                }
+                
+                // 绘制复制的线条（蓝色）和测量结果
+                this.copiedLines.forEach((line, index) => {
+                    this.ctx.strokeStyle = '#3b82f6';
+                    this.ctx.lineWidth = 3;
+                    this.ctx.beginPath();
+                    
+                    const p1 = this.transformPoint(line.points[0]);
+                    const p2 = this.transformPoint(line.points[1]);
+                    this.ctx.moveTo(p1.x, p1.y);
+                    this.ctx.lineTo(p2.x, p2.y);
+                    this.ctx.stroke();
+                    
+                    // 计算并显示wire sweep百分比
+                    if (this.originalLine.complete) {
+                        const originalLength = this.calculateDistance(
+                            this.originalLine.points[0], 
+                            this.originalLine.points[1]
+                        );
+                        
+                        const perpendicularDistance = this.calculatePerpendicularDistance(
+                            this.originalLine.points[0],
+                            this.originalLine.points[1],
+                            line.points[0],
+                            line.points[1]
+                        );
+                        
+                        const sweepPercentage = (perpendicularDistance / originalLength * 100).toFixed(2);
+                        
+                        // 在线条中点显示测量结果
+                        const midX = (p1.x + p2.x) / 2;
+                        const midY = (p1.y + p2.y) / 2;
+                        
+                        this.ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                        this.ctx.fillRect(midX - 30, midY - 15, 60, 20);
+                        
+                        this.ctx.fillStyle = 'white';
+                        this.ctx.font = '12px Arial';
+                        this.ctx.textAlign = 'center';
+                        this.ctx.fillText(`${sweepPercentage}%`, midX, midY + 3);
+                    }
+                });
+            }
+            
+            transformPoint(point) {
+                return {
+                    x: point.x * this.scale + this.offsetX,
+                    y: point.y * this.scale + this.offsetY
+                };
+            }
+        }
+        
+        // 初始化应用
+        document.addEventListener('DOMContentLoaded', () => {
+            new WireSweepMeasurer();
+        });
+    </script>
+</body>
+</html>

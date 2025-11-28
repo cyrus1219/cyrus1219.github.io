@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IMC Solder Joint Coverage Calculator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .canvas-container {
+            position: relative;
+            display: inline-block;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .ellipse-overlay {
+            position: absolute;
+            border: 2px dashed #3b82f6;
+            border-radius: 50%;
+            background: rgba(59, 130, 246, 0.1);
+            cursor: move;
+        }
+        
+        .resize-handle {
+            position: absolute;
+            width: 12px;
+            height: 12px;
+            background: #3b82f6;
+            border: 2px solid white;
+            border-radius: 50%;
+            cursor: nw-resize;
+        }
+        
+        .handle-nw { top: -6px; left: -6px; }
+        .handle-ne { top: -6px; right: -6px; }
+        .handle-sw { bottom: -6px; left: -6px; }
+        .handle-se { bottom: -6px; right: -6px; }
+        
+        .dual-range-slider {
+            position: relative;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+        }
+        
+        .range-track {
+            position: absolute;
+            height: 100%;
+            background: #3b82f6;
+            border-radius: 3px;
+        }
+        
+        .range-thumb {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            border: 2px solid white;
+            border-radius: 50%;
+            cursor: pointer;
+            top: -7px;
+            margin-left: -10px;
+        }
+        
+        .eyedropper-cursor {
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
+            <h1 id="header-title-a1b2c3d4" class="text-3xl font-bold text-gray-800 mb-2">IMC Solder Joint Coverage Calculator</h1>
+            <p id="header-description-e5f6g7h8" class="text-gray-600">Upload an image, select the analysis area, and calculate intermetallic coverage with precision.</p>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Panel - Controls -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- File Upload -->
+                <div id="upload-panel-i9j0k1l2" class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Image Upload</h2>
+                    <div class="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
+                        <input type="file" id="file-input-m3n4o5p6" accept="image/*" class="hidden">
+                        <button id="upload-btn-q7r8s9t0" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            Choose Image File
+                        </button>
+                        <p class="text-sm text-gray-500 mt-2">Supports JPG, PNG, GIF formats</p>
+                    </div>
+                </div>
+
+                <!-- Grayscale Range Controls -->
+                <div id="range-panel-u1v2w3x4" class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Grayscale Range</h2>
+                    <div class="space-y-4">
+                        <div class="dual-range-slider" id="dual-slider-y5z6a7b8">
+                            <div class="range-track" id="range-track-c9d0e1f2"></div>
+                            <div class="range-thumb" id="min-thumb-g3h4i5j6"></div>
+                            <div class="range-thumb" id="max-thumb-k7l8m9n0"></div>
+                        </div>
+                        <div class="flex justify-between text-sm text-gray-600">
+                            <span>Min: <span id="min-value-o1p2q3r4" class="font-semibold">0</span></span>
+                            <span>Max: <span id="max-value-s5t6u7v8" class="font-semibold">255</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Color Picker Tool -->
+                <div id="picker-panel-w9x0y1z2" class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Color Picker</h2>
+                    <div class="space-y-4">
+                        <button id="eyedropper-btn-a3b4c5d6" class="w-full bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            🎯 Activate Eyedropper
+                        </button>
+                        <div class="flex items-center space-x-2">
+                            <label class="text-sm text-gray-600">Exclusion Range:</label>
+                            <input type="number" id="exclusion-range-e7f8g9h0" value="25" min="1" max="50" class="w-16 px-2 py-1 border rounded text-center">
+                            <span class="text-sm text-gray-600">%</span>
+                        </div>
+                        <div id="sampled-values-i1j2k3l4" class="text-sm text-gray-600">
+                            <p>Sampled values will appear here</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Panel -->
+                <div id="results-panel-m5n6o7p8" class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Results</h2>
+                    <div class="space-y-3">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Ellipse Area:</span>
+                            <span id="ellipse-area-q9r0s1t2" class="font-semibold">0 px²</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Selected Pixels:</span>
+                            <span id="selected-pixels-u3v4w5x6" class="font-semibold">0</span>
+                        </div>
+                        <div class="flex justify-between text-lg">
+                            <span class="text-gray-800 font-semibold">Coverage:</span>
+                            <span id="coverage-percentage-y7z8a9b0" class="font-bold text-blue-600">0.00%</span>
+                        </div>
+                    </div>
+                    <button id="reset-btn-c1d2e3f4" class="w-full mt-4 bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        Reset Analysis
+                    </button>
+                </div>
+            </div>
+
+            <!-- Right Panel - Image Display -->
+            <div class="lg:col-span-2">
+                <div id="image-panel-g5h6i7j8" class="bg-white rounded-lg shadow-lg p-6">
+                    <h2 class="text-xl font-semibold text-gray-800 mb-4">Image Analysis</h2>
+                    <div id="canvas-wrapper-k9l0m1n2" class="flex justify-center">
+                        <div class="canvas-container">
+                            <canvas id="main-canvas-o3p4q5r6" class="max-w-full h-auto"></canvas>
+                            <canvas id="overlay-canvas-s7t8u9v0" class="absolute top-0 left-0 pointer-events-none"></canvas>
+                            <div id="ellipse-overlay-w1x2y3z4" class="ellipse-overlay" style="display: none;">
+                                <div class="resize-handle handle-nw" data-handle="nw"></div>
+                                <div class="resize-handle handle-ne" data-handle="ne"></div>
+                                <div class="resize-handle handle-sw" data-handle="sw"></div>
+                                <div class="resize-handle handle-se" data-handle="se"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        class IMCCalculator {
+            constructor() {
+                this.canvas = document.getElementById('main-canvas-o3p4q5r6');
+                this.ctx = this.canvas.getContext('2d');
+                this.overlayCanvas = document.getElementById('overlay-canvas-s7t8u9v0');
+                this.overlayCtx = this.overlayCanvas.getContext('2d');
+                this.ellipseOverlay = document.getElementById('ellipse-overlay-w1x2y3z4');
+                
+                this.originalImageData = null;
+                this.grayscaleImageData = null;
+                this.minGrayscale = 0;
+                this.maxGrayscale = 255;
+                this.excludedRanges = [];
+                this.exclusionPercentage = 25;
+                this.eyedropperActive = false;
+                
+                this.ellipse = {
+                    x: 100,
+                    y: 100,
+                    width: 200,
+                    height: 150
+                };
+                
+                this.isDragging = false;
+                this.isResizing = false;
+                this.dragStart = { x: 0, y: 0 };
+                this.resizeHandle = null;
+                
+                this.initializeEventListeners();
+                this.initializeDualRangeSlider();
+            }
+            
+            initializeEventListeners() {
+                // File upload
+                document.getElementById('upload-btn-q7r8s9t0').addEventListener('click', () => {
+                    document.getElementById('file-input-m3n4o5p6').click();
+                });
+                
+                document.getElementById('file-input-m3n4o5p6').addEventListener('change', (e) => {
+                    this.handleFileUpload(e);
+                });
+                
+                // Eyedropper
+                document.getElementById('eyedropper-btn-a3b4c5d6').addEventListener('click', () => {
+                    this.toggleEyedropper();
+                });
+                
+                // Exclusion range
+                document.getElementById('exclusion-range-e7f8g9h0').addEventListener('input', (e) => {
+                    this.exclusionPercentage = parseInt(e.target.value);
+                    this.updateAnalysis();
+                });
+                
+                // Reset button
+                document.getElementById('reset-btn-c1d2e3f4').addEventListener('click', () => {
+                    this.resetAnalysis();
+                });
+                
+                // Canvas events
+                this.canvas.addEventListener('click', (e) => {
+                    if (this.eyedropperActive) {
+                        this.handleEyedropper(e);
+                    }
+                });
+                
+                // Ellipse events
+                this.ellipseOverlay.addEventListener('mousedown', (e) => {
+                    this.handleEllipseMouseDown(e);
+                });
+                
+                document.addEventListener('mousemove', (e) => {
+                    this.handleMouseMove(e);
+                });
+                
+                document.addEventListener('mouseup', () => {
+                    this.handleMouseUp();
+                });
+            }
+            
+            initializeDualRangeSlider() {
+                const slider = document.getElementById('dual-slider-y5z6a7b8');
+                const track = document.getElementById('range-track-c9d0e1f2');
+                const minThumb = document.getElementById('min-thumb-g3h4i5j6');
+                const maxThumb = document.getElementById('max-thumb-k7l8m9n0');
+                
+                let isDraggingMin = false;
+                let isDraggingMax = false;
+                
+                const updateSlider = () => {
+                    const minPercent = (this.minGrayscale / 255) * 100;
+                    const maxPercent = (this.maxGrayscale / 255) * 100;
+                    
+                    track.style.left = minPercent + '%';
+                    track.style.width = (maxPercent - minPercent) + '%';
+                    minThumb.style.left = minPercent + '%';
+                    maxThumb.style.left = maxPercent + '%';
+                    
+                    document.getElementById('min-value-o1p2q3r4').textContent = this.minGrayscale;
+                    document.getElementById('max-value-s5t6u7v8').textContent = this.maxGrayscale;
+                    
+                    this.updateAnalysis();
+                };
+                
+                const getValueFromPosition = (e) => {
+                    const rect = slider.getBoundingClientRect();
+                    const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+                    return Math.round(percent * 255);
+                };
+                
+                minThumb.addEventListener('mousedown', (e) => {
+                    isDraggingMin = true;
+                    e.preventDefault();
+                });
+                
+                maxThumb.addEventListener('mousedown', (e) => {
+                    isDraggingMax = true;
+                    e.preventDefault();
+                });
+                
+                document.addEventListener('mousemove', (e) => {
+                    if (isDraggingMin) {
+                        const value = getValueFromPosition(e);
+                        this.minGrayscale = Math.min(value, this.maxGrayscale - 1);
+                        updateSlider();
+                    } else if (isDraggingMax) {
+                        const value = getValueFromPosition(e);
+                        this.maxGrayscale = Math.max(value, this.minGrayscale + 1);
+                        updateSlider();
+                    }
+                });
+                
+                document.addEventListener('mouseup', () => {
+                    isDraggingMin = false;
+                    isDraggingMax = false;
+                });
+                
+                updateSlider();
+            }
+            
+            handleFileUpload(e) {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.loadImage(img);
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            loadImage(img) {
+                // Set canvas size
+                const maxWidth = 800;
+                const maxHeight = 600;
+                let { width, height } = img;
+                
+                if (width > maxWidth || height > maxHeight) {
+                    const ratio = Math.min(maxWidth / width, maxHeight / height);
+                    width *= ratio;
+                    height *= ratio;
+                }
+                
+                this.canvas.width = width;
+                this.canvas.height = height;
+                this.overlayCanvas.width = width;
+                this.overlayCanvas.height = height;
+                
+                // Draw and convert to grayscale
+                this.ctx.drawImage(img, 0, 0, width, height);
+                this.originalImageData = this.ctx.getImageData(0, 0, width, height);
+                this.convertToGrayscale();
+                
+                // Show ellipse
+                this.ellipseOverlay.style.display = 'block';
+                this.updateEllipsePosition();
+                this.updateAnalysis();
+            }
+            
+            convertToGrayscale() {
+                const imageData = this.ctx.createImageData(this.originalImageData);
+                const data = imageData.data;
+                const originalData = this.originalImageData.data;
+                
+                for (let i = 0; i < originalData.length; i += 4) {
+                    const gray = Math.round(
+                        0.299 * originalData[i] +
+                        0.587 * originalData[i + 1] +
+                        0.114 * originalData[i + 2]
+                    );
+                    
+                    data[i] = gray;     // R
+                    data[i + 1] = gray; // G
+                    data[i + 2] = gray; // B
+                    data[i + 3] = originalData[i + 3]; // A
+                }
+                
+                this.grayscaleImageData = imageData;
+                this.ctx.putImageData(imageData, 0, 0);
+            }
+            
+            toggleEyedropper() {
+                this.eyedropperActive = !this.eyedropperActive;
+                const btn = document.getElementById('eyedropper-btn-a3b4c5d6');
+                
+                if (this.eyedropperActive) {
+                    btn.textContent = '🎯 Click to Sample (Active)';
+                    btn.classList.remove('bg-green-500', 'hover:bg-green-600');
+                    btn.classList.add('bg-red-500', 'hover:bg-red-600');
+                    this.canvas.classList.add('eyedropper-cursor');
+                } else {
+                    btn.textContent = '🎯 Activate Eyedropper';
+                    btn.classList.remove('bg-red-500', 'hover:bg-red-600');
+                    btn.classList.add('bg-green-500', 'hover:bg-green-600');
+                    this.canvas.classList.remove('eyedropper-cursor');
+                }
+            }
+            
+            handleEyedropper(e) {
+                if (!this.grayscaleImageData) return;
+                
+                const rect = this.canvas.getBoundingClientRect();
+                const x = Math.floor((e.clientX - rect.left) * (this.canvas.width / rect.width));
+                const y = Math.floor((e.clientY - rect.top) * (this.canvas.height / rect.height));
+                
+                const index = (y * this.canvas.width + x) * 4;
+                const grayValue = this.grayscaleImageData.data[index];
+                
+                // Add exclusion range
+                const range = Math.round((grayValue * this.exclusionPercentage) / 100);
+                const minExclude = Math.max(0, grayValue - range);
+                const maxExclude = Math.min(255, grayValue + range);
+                
+                this.excludedRanges.push({ min: minExclude, max: maxExclude, value: grayValue });
+                
+                // Update display
+                this.updateSampledValues();
+                this.updateAnalysis();
+                this.toggleEyedropper();
+            }
+            
+            updateSampledValues() {
+                const container = document.getElementById('sampled-values-i1j2k3l4');
+                if (this.excludedRanges.length === 0) {
+                    container.innerHTML = '<p>Sampled values will appear here</p>';
+                    return;
+                }
+                
+                let html = '<div class="space-y-2">';
+                this.excludedRanges.forEach((range, index) => {
+                    html += `
+                        <div class="flex justify-between items-center text-xs bg-gray-100 p-2 rounded">
+                            <span>Value: ${range.value} (±${this.exclusionPercentage}%)</span>
+                            <button onclick="imcCalc.removeExcludedRange(${index})" class="text-red-500 hover:text-red-700">×</button>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                container.innerHTML = html;
+            }
+            
+            removeExcludedRange(index) {
+                this.excludedRanges.splice(index, 1);
+                this.updateSampledValues();
+                this.updateAnalysis();
+            }
+            
+            handleEllipseMouseDown(e) {
+                e.preventDefault();
+                const handle = e.target.dataset.handle;
+                
+                if (handle) {
+                    this.isResizing = true;
+                    this.resizeHandle = handle;
+                } else {
+                    this.isDragging = true;
+                }
+                
+                const rect = this.ellipseOverlay.getBoundingClientRect();
+                this.dragStart = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+            }
+            
+            handleMouseMove(e) {
+                if (!this.isDragging && !this.isResizing) return;
+                
+                const canvasRect = this.canvas.getBoundingClientRect();
+                const mouseX = e.clientX - canvasRect.left;
+                const mouseY = e.clientY - canvasRect.top;
+                
+                if (this.isDragging) {
+                    this.ellipse.x = Math.max(0, Math.min(this.canvas.width - this.ellipse.width, mouseX - this.dragStart.x));
+                    this.ellipse.y = Math.max(0, Math.min(this.canvas.height - this.ellipse.height, mouseY - this.dragStart.y));
+                } else if (this.isResizing) {
+                    this.handleResize(mouseX, mouseY);
+                }
+                
+                this.updateEllipsePosition();
+                this.updateAnalysis();
+            }
+            
+            handleResize(mouseX, mouseY) {
+                const handle = this.resizeHandle;
+                const minSize = 20;
+                
+                switch (handle) {
+                    case 'nw':
+                        const newWidth = this.ellipse.x + this.ellipse.width - mouseX;
+                        const newHeight = this.ellipse.y + this.ellipse.height - mouseY;
+                        if (newWidth > minSize && newHeight > minSize) {
+                            this.ellipse.width = newWidth;
+                            this.ellipse.height = newHeight;
+                            this.ellipse.x = mouseX;
+                            this.ellipse.y = mouseY;
+                        }
+                        break;
+                    case 'ne':
+                        const newWidth2 = mouseX - this.ellipse.x;
+                        const newHeight2 = this.ellipse.y + this.ellipse.height - mouseY;
+                        if (newWidth2 > minSize && newHeight2 > minSize) {
+                            this.ellipse.width = newWidth2;
+                            this.ellipse.height = newHeight2;
+                            this.ellipse.y = mouseY;
+                        }
+                        break;
+                    case 'sw':
+                        const newWidth3 = this.ellipse.x + this.ellipse.width - mouseX;
+                        const newHeight3 = mouseY - this.ellipse.y;
+                        if (newWidth3 > minSize && newHeight3 > minSize) {
+                            this.ellipse.width = newWidth3;
+                            this.ellipse.height = newHeight3;
+                            this.ellipse.x = mouseX;
+                        }
+                        break;
+                    case 'se':
+                        const newWidth4 = mouseX - this.ellipse.x;
+                        const newHeight4 = mouseY - this.ellipse.y;
+                        if (newWidth4 > minSize && newHeight4 > minSize) {
+                            this.ellipse.width = newWidth4;
+                            this.ellipse.height = newHeight4;
+                        }
+                        break;
+                }
+            }
+            
+            handleMouseUp() {
+                this.isDragging = false;
+                this.isResizing = false;
+                this.resizeHandle = null;
+            }
+            
+            updateEllipsePosition() {
+                this.ellipseOverlay.style.left = this.ellipse.x + 'px';
+                this.ellipseOverlay.style.top = this.ellipse.y + 'px';
+                this.ellipseOverlay.style.width = this.ellipse.width + 'px';
+                this.ellipseOverlay.style.height = this.ellipse.height + 'px';
+            }
+            
+            updateAnalysis() {
+                if (!this.grayscaleImageData) return;
+                
+                // Clear overlay
+                this.overlayCtx.clearRect(0, 0, this.overlayCanvas.width, this.overlayCanvas.height);
+                
+                const data = this.grayscaleImageData.data;
+                const overlayData = this.overlayCtx.createImageData(this.canvas.width, this.canvas.height);
+                const overlay = overlayData.data;
+                
+                let selectedPixels = 0;
+                let totalEllipsePixels = 0;
+                
+                const centerX = this.ellipse.x + this.ellipse.width / 2;
+                const centerY = this.ellipse.y + this.ellipse.height / 2;
+                const radiusX = this.ellipse.width / 2;
+                const radiusY = this.ellipse.height / 2;
+                
+                for (let y = 0; y < this.canvas.height; y++) {
+                    for (let x = 0; x < this.canvas.width; x++) {
+                        const index = (y * this.canvas.width + x) * 4;
+                        
+                        // Check if pixel is inside ellipse
+                        const dx = (x - centerX) / radiusX;
+                        const dy = (y - centerY) / radiusY;
+                        const isInEllipse = (dx * dx + dy * dy) <= 1;
+                        
+                        if (isInEllipse) {
+                            totalEllipsePixels++;
+                            
+                            const grayValue = data[index];
+                            let isSelected = grayValue >= this.minGrayscale && grayValue <= this.maxGrayscale;
+                            
+                            // Check exclusions
+                            for (const range of this.excludedRanges) {
+                                if (grayValue >= range.min && grayValue <= range.max) {
+                                    isSelected = false;
+                                    break;
+                                }
+                            }
+                            
+                            if (isSelected) {
+                                selectedPixels++;
+                                // Add red overlay
+                                overlay[index] = 255;     // R
+                                overlay[index + 1] = 0;   // G
+                                overlay[index + 2] = 0;   // B
+                                overlay[index + 3] = 128; // A (50% transparent)
+                            }
+                        }
+                    }
+                }
+                
+                this.overlayCtx.putImageData(overlayData, 0, 0);
+                
+                // Update results
+                const ellipseArea = Math.PI * radiusX * radiusY;
+                const coverage = totalEllipsePixels > 0 ? (selectedPixels / totalEllipsePixels) * 100 : 0;
+                
+                document.getElementById('ellipse-area-q9r0s1t2').textContent = Math.round(ellipseArea) + ' px²';
+                document.getElementById('selected-pixels-u3v4w5x6').textContent = selectedPixels;
+                document.getElementById('coverage-percentage-y7z8a9b0').textContent = coverage.toFixed(2) + '%';
+            }
+            
+            resetAnalysis() {
+                this.excludedRanges = [];
+                this.minGrayscale = 0;
+                this.maxGrayscale = 255;
+                this.exclusionPercentage = 10;
+                
+                document.getElementById('exclusion-range-e7f8g9h0').value = 10;
+                this.updateSampledValues();
+                this.updateAnalysis();
+                
+                // Reset slider
+                const minThumb = document.getElementById('min-thumb-g3h4i5j6');
+                const maxThumb = document.getElementById('max-thumb-k7l8m9n0');
+                const track = document.getElementById('range-track-c9d0e1f2');
+                
+                minThumb.style.left = '0%';
+                maxThumb.style.left = '100%';
+                track.style.left = '0%';
+                track.style.width = '100%';
+                
+                document.getElementById('min-value-o1p2q3r4').textContent = '0';
+                document.getElementById('max-value-s5t6u7v8').textContent = '255';
+            }
+        }
+        
+        // Initialize the calculator
+        const imcCalc = new IMCCalculator();
+    </script>
+</body>
+</html>

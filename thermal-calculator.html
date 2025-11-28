@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>封装热阻计算器</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+
+        h1 {
+            color: #333;
+            text-align: center;
+            margin: 0;
+            padding: 30px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-size: 28px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0;
+            min-height: 600px;
+        }
+
+        .left-panel {
+            background: #f8f9fa;
+            padding: 30px;
+            border-right: 2px solid #e9ecef;
+        }
+
+        .right-panel {
+            background: white;
+            padding: 30px;
+        }
+
+        .input-section h3 {
+            color: #333;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        .input-group {
+            display: table;
+            width: 100%;
+            border-spacing: 0 15px;
+            margin-bottom: 25px;
+        }
+
+        .input-row {
+            display: table-row;
+        }
+
+        .input-cell {
+            display: table-cell;
+            vertical-align: middle;
+            padding-right: 30px;
+            width: 50%;
+        }
+
+        .form-field {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        label {
+            font-weight: bold;
+            color: #555;
+            font-size: 14px;
+            width: 110px;
+            flex-shrink: 0;
+            text-align: left;
+        }
+
+        input[type="number"] {
+            padding: 10px 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: all 0.3s;
+            width: 140px;
+            flex-shrink: 0;
+        }
+
+        input[type="number"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #007bff;
+            box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        select {
+            padding: 10px 12px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            transition: all 0.3s;
+            background: white;
+            width: 140px;
+            flex-shrink: 0;
+        }
+
+        .package-type-buttons {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 25px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        .type-btn {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid #ddd;
+            border-radius: 6px;
+            background: white;
+            color: #666;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .type-btn:hover {
+            border-color: #007bff;
+            color: #007bff;
+        }
+
+        .type-btn.active {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            border-color: #007bff;
+            color: white;
+            box-shadow: 0 2px 10px rgba(0, 123, 255, 0.3);
+        }
+
+
+
+        .calculate-btn {
+            background: linear-gradient(135deg, #007bff 0%, #0056b3 100%);
+            color: white;
+            padding: 15px 40px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: block;
+            margin: 25px auto;
+            box-shadow: 0 4px 15px rgba(0, 123, 255, 0.3);
+        }
+
+        .calculate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 123, 255, 0.4);
+        }
+
+        .reference-btn {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: block;
+            margin: 15px auto 0;
+            box-shadow: 0 3px 10px rgba(40, 167, 69, 0.3);
+        }
+
+        .reference-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.4);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 0;
+            border-radius: 10px;
+            width: 80%;
+            max-width: 800px;
+            max-height: 80vh;
+            overflow-y: auto;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .modal-header {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px 10px 0 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .modal-header h2 {
+            margin: 0;
+            font-size: 24px;
+        }
+
+        .close {
+            color: white;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            line-height: 1;
+        }
+
+        .close:hover {
+            opacity: 0.7;
+        }
+
+        .modal-body {
+            padding: 30px;
+        }
+
+        .thermal-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+
+        .thermal-table th,
+        .thermal-table td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+
+        .thermal-table th {
+            background-color: #f8f9fa;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .thermal-table .package-name {
+            font-weight: bold;
+            background-color: #e8f5e8;
+            vertical-align: top;
+        }
+
+        .thermal-table .material-name {
+            padding-left: 20px;
+        }
+
+        .thermal-table .thermal-value {
+            text-align: right;
+            font-weight: bold;
+            color: #007bff;
+        }
+
+
+
+        .results {
+            background: linear-gradient(135deg, #e8f5e8 0%, #d4edda 100%);
+            border-radius: 8px;
+            padding: 0;
+            display: none;
+            height: fit-content;
+        }
+
+        .results h3 {
+            color: #155724;
+            margin: 0;
+            padding: 20px;
+            background: rgba(40, 167, 69, 0.1);
+            border-bottom: 1px solid #c3e6cb;
+            font-size: 20px;
+        }
+
+        .results-content {
+            padding: 20px;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 0;
+            border-bottom: 1px solid #c3e6cb;
+        }
+
+        .result-item:last-child {
+            border-bottom: none;
+        }
+
+        .result-label {
+            font-weight: bold;
+            color: #155724;
+            font-size: 16px;
+        }
+
+        .result-value {
+            font-size: 20px;
+            color: #007bff;
+            font-weight: bold;
+        }
+
+        .unit {
+            font-size: 14px;
+            color: #666;
+            margin-left: 5px;
+        }
+
+        .formula-info {
+            background: #fff3cd;
+            padding: 20px;
+            margin-top: 20px;
+            font-size: 14px;
+            color: #856404;
+            border-left: 4px solid #ffc107;
+        }
+
+        @media (max-width: 1024px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .left-panel {
+                border-right: none;
+                border-bottom: 2px solid #e9ecef;
+            }
+
+            .input-group {
+                display: block;
+            }
+
+            .input-row {
+                display: block;
+                margin-bottom: 15px;
+            }
+
+            .input-cell {
+                display: block;
+                width: 100%;
+                padding-right: 0;
+                margin-bottom: 15px;
+            }
+
+            .form-field {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            label {
+                width: auto;
+            }
+
+            input[type="number"],
+            select {
+                width: 100%;
+            }
+
+            .package-type-buttons {
+                flex-direction: column;
+                gap: 8px;
+            }
+
+            .type-btn {
+                width: 100%;
+                padding: 15px;
+                font-size: 18px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            body {
+                padding: 5px;
+                font-size: 14px;
+            }
+
+            .container {
+                border-radius: 5px;
+            }
+
+            .left-panel,
+            .right-panel {
+                padding: 15px;
+            }
+
+            h1 {
+                font-size: 20px;
+                padding: 15px;
+            }
+
+            .package-type-buttons {
+                padding: 15px;
+                margin-bottom: 15px;
+            }
+
+            .calculate-btn,
+            .reference-btn {
+                width: 100%;
+                padding: 15px;
+                font-size: 16px;
+                margin: 10px 0;
+            }
+
+            .results-content {
+                padding: 15px;
+            }
+
+            .result-item {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 5px;
+                padding: 12px 0;
+            }
+
+            .result-label {
+                font-size: 14px;
+            }
+
+            .result-value {
+                font-size: 18px;
+            }
+
+            .formula-info {
+                padding: 15px;
+                font-size: 13px;
+            }
+
+            .modal-content {
+                width: 95%;
+                margin: 2% auto;
+                max-height: 90vh;
+            }
+
+            .modal-header {
+                padding: 15px;
+            }
+
+            .modal-header h2 {
+                font-size: 18px;
+            }
+
+            .modal-body {
+                padding: 15px;
+            }
+
+            .thermal-table {
+                font-size: 12px;
+            }
+
+            .thermal-table th,
+            .thermal-table td {
+                padding: 8px 6px;
+            }
+
+            .thermal-table .material-name {
+                padding-left: 10px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            body {
+                padding: 2px;
+            }
+
+            h1 {
+                font-size: 18px;
+                padding: 12px;
+            }
+
+            .left-panel,
+            .right-panel {
+                padding: 10px;
+            }
+
+            .package-type-buttons {
+                padding: 10px;
+            }
+
+            .type-btn {
+                padding: 12px;
+                font-size: 16px;
+            }
+
+            .form-field {
+                gap: 6px;
+            }
+
+            label {
+                font-size: 13px;
+            }
+
+            input[type="number"],
+            select {
+                padding: 10px;
+                font-size: 14px;
+            }
+
+            .calculate-btn,
+            .reference-btn {
+                padding: 12px;
+                font-size: 14px;
+            }
+
+            .results h3 {
+                padding: 15px;
+                font-size: 16px;
+            }
+
+            .results-content {
+                padding: 10px;
+            }
+
+            .result-item {
+                padding: 10px 0;
+            }
+
+            .result-label {
+                font-size: 13px;
+            }
+
+            .result-value {
+                font-size: 16px;
+            }
+
+            .formula-info {
+                padding: 12px;
+                font-size: 12px;
+            }
+
+            .modal-content {
+                width: 98%;
+                margin: 1% auto;
+            }
+
+            .modal-header {
+                padding: 12px;
+            }
+
+            .modal-header h2 {
+                font-size: 16px;
+            }
+
+            .modal-body {
+                padding: 12px;
+            }
+
+            .thermal-table {
+                font-size: 11px;
+            }
+
+            .thermal-table th,
+            .thermal-table td {
+                padding: 6px 4px;
+            }
+
+            .close {
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <h1>封装热阻计算器</h1>
+
+        <div class="main-content">
+            <!-- 左侧输入区域 -->
+            <div class="left-panel">
+                <!-- 封装类型选择按钮 -->
+                <div class="package-type-buttons">
+                    <button class="type-btn active" id="lqfpBtn" onclick="selectPackageType('LQFP')">LQFP</button>
+                    <button class="type-btn" id="qfnBtn" onclick="selectPackageType('QFN')">QFN</button>
+                    <button class="type-btn" id="tfbgaBtn" onclick="selectPackageType('TFBGA')">TFBGA</button>
+                </div>
+
+                <div class="input-section">
+                    <h3>输入参数</h3>
+
+                    <div class="input-group" id="inputGroup">
+                        <!-- LQFP 输入字段 -->
+                        <div class="input-row" id="lqfpRow1">
+                            <div class="input-cell">
+                                <div class="form-field">
+                                    <label for="lqfpPackageSize">封装尺寸</label>
+                                    <input type="number" id="lqfpPackageSize" step="0.1" placeholder="mm">
+                                </div>
+                            </div>
+                            <div class="input-cell">
+                                <div class="form-field">
+                                    <label for="lqfpChipSize">芯片尺寸</label>
+                                    <input type="number" id="lqfpChipSize" step="0.1" placeholder="mm">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="input-row" id="lqfpRow2">
+                            <div class="input-cell">
+                                <div class="form-field">
+                                    <label for="lqfpDiePaddleSize">Die Paddle尺寸</label>
+                                    <input type="number" id="lqfpDiePaddleSize" step="0.1" placeholder="mm">
+                                </div>
+                            </div>
+                            <div class="input-cell">
+                                <div class="form-field">
+                                    <label for="lqfpPinNumber">引脚数量</label>
+                                    <input type="number" id="lqfpPinNumber" step="1" placeholder="个">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- QFN 输入字段 -->
+                        <div class="input-row" id="qfnRow1" style="display: none;">
+                            <div class="input-cell">
+                                <div class="form-field">
+                                    <label for="qfnPackageSize">封装尺寸</label>
+                                    <input type="number" id="qfnPackageSize" step="0.1" placeholder="mm">
+                                </div>
+                            </div>
+                            <div class="input-cell">
+                                <div class="form-field">
+                                    <label for="qfnChipSize">芯片尺寸</label>
+                                    <input type="number" id="qfnChipSize" step="0.1" placeholder="mm">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="input-row" id="qfnRow2" style="display: none;">
+                            <div class="input-cell">
+                                <div class="form-field">
+                                    <label for="qfnPinNumber">引脚数量</label>
+                                    <input type="number" id="qfnPinNumber" step="1" placeholder="个">
+                                </div>
+                            </div>
+                            <div class="input-cell">
+                                <div class="form-field">
+                                    <label for="qfnLeadPitch">引脚间距</label>
+                                    <select id="qfnLeadPitch">
+                                        <option value="0.4">0.4mm</option>
+                                        <option value="0.5">0.5mm</option>
+                                        <option value="0.65">0.65mm</option>
+                                        <option value="0.8">0.8mm</option>
+                                        <option value="1">1.0mm</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- TFBGA 输入字段 -->
+                        <div class="input-row" id="tfbgaRow1" style="display: none;">
+                            <div class="input-cell">
+                                <div class="form-field">
+                                    <label for="tfbgaPackageSize">封装尺寸</label>
+                                    <input type="number" id="tfbgaPackageSize" step="0.1" placeholder="mm">
+                                </div>
+                            </div>
+                            <div class="input-cell">
+                                <div class="form-field">
+                                    <label for="tfbgaBallCount">Ball数量</label>
+                                    <input type="number" id="tfbgaBallCount" step="1" placeholder="个">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="input-row" id="tfbgaRow2" style="display: none;">
+                            <div class="input-cell">
+                                <div class="form-field">
+                                    <label for="tfbgaChipSize">芯片尺寸</label>
+                                    <input type="number" id="tfbgaChipSize" step="0.1" placeholder="mm">
+                                </div>
+                            </div>
+                            <div class="input-cell">
+                                <div class="form-field">
+                                    <label for="tfbgaBallPitch">Ball间距</label>
+                                    <select id="tfbgaBallPitch">
+                                        <option value="0.5">0.5mm</option>
+                                        <option value="0.65">0.65mm</option>
+                                        <option value="0.8">0.8mm</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="input-row" id="tfbgaRow3" style="display: none;">
+                            <div class="input-cell">
+                                <div class="form-field">
+                                    <label for="tfbgaMatrixLength">Matrix长度</label>
+                                    <input type="number" id="tfbgaMatrixLength" step="1" placeholder="个">
+                                </div>
+                            </div>
+                            <div class="input-cell">
+                                <div class="form-field">
+                                    <label for="tfbgaMatrixWidth">Matrix宽度</label>
+                                    <input type="number" id="tfbgaMatrixWidth" step="1" placeholder="个">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="calculate-btn" onclick="calculateThermalResistance()">计算热阻</button>
+
+                    <button class="reference-btn" onclick="showReference()">Reference</button>
+                </div>
+
+
+            </div>
+
+            <!-- 右侧输出区域 -->
+            <div class="right-panel">
+                <div id="results" class="results">
+                    <h3>计算结果</h3>
+                    <div class="results-content">
+                        <div class="result-item">
+                            <span class="result-label">θja (结到环境热阻)</span>
+                            <span class="result-value" id="theta-ja">--<span class="unit">°C/W</span></span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">θjc (结到外壳热阻)</span>
+                            <span class="result-value" id="theta-jc">--<span class="unit">°C/W</span></span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">θjb (结到电路板热阻)</span>
+                            <span class="result-value" id="theta-jb">--<span class="unit">°C/W</span></span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">ψjb (结到电路板热特性参数)</span>
+                            <span class="result-value" id="psi-jb">--<span class="unit">°C/W</span></span>
+                        </div>
+                        <div class="result-item">
+                            <span class="result-label">ψjt (结到顶部热特性参数)</span>
+                            <span class="result-value" id="psi-jt">--<span class="unit">°C/W</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="formula-info" id="formulaInfo">
+                    <strong>说明：</strong>此计算器基于LQFP封装的热阻经验公式，适用于常见的LQFP封装类型。计算结果仅供参考，实际应用中请结合具体的散热设计和测试验证。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reference Modal -->
+    <div id="referenceModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>封装材料导热率参考</h2>
+                <span class="close" onclick="closeReference()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <table class="thermal-table">
+                    <thead>
+                        <tr>
+                            <th>封装类型</th>
+                            <th>材料名称</th>
+                            <th>导热率 (W/mK)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td rowspan="5" class="package-name">QFN</td>
+                            <td class="material-name">Encapsulant</td>
+                            <td class="thermal-value">0.88</td>
+                        </tr>
+                        <tr>
+                            <td class="material-name">Die attach</td>
+                            <td class="thermal-value">20</td>
+                        </tr>
+                        <tr>
+                            <td class="material-name">Lead frame</td>
+                            <td class="thermal-value">260</td>
+                        </tr>
+                        <tr>
+                            <td class="material-name">Solder</td>
+                            <td class="thermal-value">50</td>
+                        </tr>
+                        <tr>
+                            <td class="material-name">Bond wire</td>
+                            <td class="thermal-value">296</td>
+                        </tr>
+
+                        <tr>
+                            <td rowspan="8" class="package-name">FBGA/CSP</td>
+                            <td class="material-name">Encapsulant</td>
+                            <td class="thermal-value">0.68</td>
+                        </tr>
+                        <tr>
+                            <td class="material-name">Die attach</td>
+                            <td class="thermal-value">1.4</td>
+                        </tr>
+                        <tr>
+                            <td class="material-name">Bond wire</td>
+                            <td class="thermal-value">296</td>
+                        </tr>
+                        <tr>
+                            <td class="material-name">Solder</td>
+                            <td class="thermal-value">50</td>
+                        </tr>
+                        <tr>
+                            <td class="material-name">Substrate structure 2S0P</td>
+                            <td class="thermal-value">-</td>
+                        </tr>
+                        <tr>
+                            <td class="material-name">&nbsp;&nbsp;Substrate dielectric</td>
+                            <td class="thermal-value">0.2</td>
+                        </tr>
+                        <tr>
+                            <td class="material-name">&nbsp;&nbsp;Cu (coverage 20/10 %)</td>
+                            <td class="thermal-value">385</td>
+                        </tr>
+                        <tr>
+                            <td class="material-name">Solder resist</td>
+                            <td class="thermal-value">0.25</td>
+                        </tr>
+
+                        <tr>
+                            <td rowspan="4" class="package-name">LQFP</td>
+                            <td class="material-name">Encapsulant</td>
+                            <td class="thermal-value">0.68</td>
+                        </tr>
+                        <tr>
+                            <td class="material-name">Die attach</td>
+                            <td class="thermal-value">2.5</td>
+                        </tr>
+                        <tr>
+                            <td class="material-name">Bond wire</td>
+                            <td class="thermal-value">296</td>
+                        </tr>
+                        <tr>
+                            <td class="material-name">Lead frame</td>
+                            <td class="thermal-value">300</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div
+                    style="margin-top: 20px; padding: 15px; background-color: #f8f9fa; border-radius: 5px; font-size: 13px; color: #666;">
+                    <strong>注意：</strong>以上数据仅供参考，实际材料的导热率可能因制造商、具体型号和工艺条件而有所不同。在进行精确的热分析时，请使用实际材料的规格数据。
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentPackageType = 'LQFP';
+
+        // 保存不同封装类型的计算结果
+        let savedResults = {
+            LQFP: null,
+            QFN: null,
+            TFBGA: null
+        };
+
+        // 保存不同封装类型的输入值
+        let savedInputs = {
+            LQFP: {
+                packageSize: '',
+                chipSize: '',
+                diePaddleSize: '',
+                pinNumber: ''
+            },
+            QFN: {
+                packageSize: '',
+                chipSize: '',
+                pinNumber: '',
+                leadPitch: '0.4'
+            },
+            TFBGA: {
+                packageSize: '',
+                ballCount: '',
+                chipSize: '',
+                ballPitch: '0.5',
+                matrixLength: '',
+                matrixWidth: ''
+            }
+        };
+
+        function selectPackageType(type) {
+            // 保存当前输入值
+            saveCurrentInputs();
+
+            currentPackageType = type;
+
+            // 更新按钮状态
+            document.getElementById('lqfpBtn').classList.remove('active');
+            document.getElementById('qfnBtn').classList.remove('active');
+            document.getElementById('tfbgaBtn').classList.remove('active');
+            document.getElementById(type.toLowerCase() + 'Btn').classList.add('active');
+
+            // 更新输入字段
+            updateInputFields();
+
+            // 恢复保存的输入值
+            restoreInputs();
+
+            // 显示保存的计算结果
+            showSavedResults();
+        }
+
+        function saveCurrentInputs() {
+            if (currentPackageType === 'LQFP') {
+                savedInputs.LQFP = {
+                    packageSize: document.getElementById('lqfpPackageSize').value,
+                    chipSize: document.getElementById('lqfpChipSize').value,
+                    diePaddleSize: document.getElementById('lqfpDiePaddleSize').value,
+                    pinNumber: document.getElementById('lqfpPinNumber').value
+                };
+            } else if (currentPackageType === 'QFN') {
+                savedInputs.QFN = {
+                    packageSize: document.getElementById('qfnPackageSize').value,
+                    chipSize: document.getElementById('qfnChipSize').value,
+                    pinNumber: document.getElementById('qfnPinNumber').value,
+                    leadPitch: document.getElementById('qfnLeadPitch').value
+                };
+            } else if (currentPackageType === 'TFBGA') {
+                savedInputs.TFBGA = {
+                    packageSize: document.getElementById('tfbgaPackageSize').value,
+                    ballCount: document.getElementById('tfbgaBallCount').value,
+                    chipSize: document.getElementById('tfbgaChipSize').value,
+                    ballPitch: document.getElementById('tfbgaBallPitch').value,
+                    matrixLength: document.getElementById('tfbgaMatrixLength').value,
+                    matrixWidth: document.getElementById('tfbgaMatrixWidth').value
+                };
+            }
+        }
+
+        function restoreInputs() {
+            const inputs = savedInputs[currentPackageType];
+
+            if (currentPackageType === 'LQFP') {
+                document.getElementById('lqfpPackageSize').value = inputs.packageSize;
+                document.getElementById('lqfpChipSize').value = inputs.chipSize;
+                document.getElementById('lqfpDiePaddleSize').value = inputs.diePaddleSize;
+                document.getElementById('lqfpPinNumber').value = inputs.pinNumber;
+            } else if (currentPackageType === 'QFN') {
+                document.getElementById('qfnPackageSize').value = inputs.packageSize;
+                document.getElementById('qfnChipSize').value = inputs.chipSize;
+                document.getElementById('qfnPinNumber').value = inputs.pinNumber;
+                document.getElementById('qfnLeadPitch').value = inputs.leadPitch;
+            } else if (currentPackageType === 'TFBGA') {
+                document.getElementById('tfbgaPackageSize').value = inputs.packageSize;
+                document.getElementById('tfbgaBallCount').value = inputs.ballCount;
+                document.getElementById('tfbgaChipSize').value = inputs.chipSize;
+                document.getElementById('tfbgaBallPitch').value = inputs.ballPitch;
+                document.getElementById('tfbgaMatrixLength').value = inputs.matrixLength;
+                document.getElementById('tfbgaMatrixWidth').value = inputs.matrixWidth;
+            }
+        }
+
+        function showSavedResults() {
+            const results = savedResults[currentPackageType];
+            if (results) {
+                displayResults(results.theta_ja, results.theta_jc, results.theta_jb, results.psi_jb, results.psi_jt);
+            } else {
+                document.getElementById('results').style.display = 'none';
+            }
+        }
+
+        function updateInputFields() {
+            const lqfpRow1 = document.getElementById('lqfpRow1');
+            const lqfpRow2 = document.getElementById('lqfpRow2');
+            const qfnRow1 = document.getElementById('qfnRow1');
+            const qfnRow2 = document.getElementById('qfnRow2');
+            const tfbgaRow1 = document.getElementById('tfbgaRow1');
+            const tfbgaRow2 = document.getElementById('tfbgaRow2');
+            const tfbgaRow3 = document.getElementById('tfbgaRow3');
+            const formulaInfo = document.getElementById('formulaInfo');
+
+            // 隐藏所有行
+            lqfpRow1.style.display = 'none';
+            lqfpRow2.style.display = 'none';
+            qfnRow1.style.display = 'none';
+            qfnRow2.style.display = 'none';
+            tfbgaRow1.style.display = 'none';
+            tfbgaRow2.style.display = 'none';
+            tfbgaRow3.style.display = 'none';
+
+            if (currentPackageType === 'LQFP') {
+                lqfpRow1.style.display = 'table-row';
+                lqfpRow2.style.display = 'table-row';
+                formulaInfo.innerHTML = '<strong>说明：</strong>此计算器基于LQFP封装的热阻经验公式，适用于常见的LQFP封装类型。计算结果仅供参考，实际应用中请结合具体的散热设计和测试验证。';
+            } else if (currentPackageType === 'QFN') {
+                qfnRow1.style.display = 'table-row';
+                qfnRow2.style.display = 'table-row';
+                formulaInfo.innerHTML = '<strong>说明：</strong>此计算器基于QFN封装的热阻经验公式，适用于常见的QFN封装类型。计算结果仅供参考，实际应用中请结合具体的散热设计和测试验证。';
+            } else if (currentPackageType === 'TFBGA') {
+                tfbgaRow1.style.display = 'table-row';
+                tfbgaRow2.style.display = 'table-row';
+                tfbgaRow3.style.display = 'table-row';
+                formulaInfo.innerHTML = '<strong>说明：</strong>此计算器基于TFBGA封装的热阻经验公式，适用于常见的TFBGA封装类型。计算结果仅供参考，实际应用中请结合具体的散热设计和测试验证。';
+            }
+        }
+
+        function calculateThermalResistance() {
+            if (currentPackageType === 'LQFP') {
+                calculateLQFP();
+            } else if (currentPackageType === 'QFN') {
+                calculateQFN();
+            } else if (currentPackageType === 'TFBGA') {
+                calculateTFBGA();
+            }
+        }
+
+        function calculateLQFP() {
+            // 获取输入值
+            const a = parseFloat(document.getElementById('lqfpPackageSize').value);
+            const b = parseFloat(document.getElementById('lqfpChipSize').value);
+            const c = parseFloat(document.getElementById('lqfpDiePaddleSize').value);
+            const d = parseFloat(document.getElementById('lqfpPinNumber').value);
+
+            // 验证输入
+            if (isNaN(a) || isNaN(b) || isNaN(c) || isNaN(d)) {
+                alert('请输入所有必需的数值参数！');
+                return;
+            }
+
+            if (a <= 0 || b <= 0 || c <= 0 || d <= 0) {
+                alert('所有参数必须大于0！');
+                return;
+            }
+
+            // 计算热阻值
+            const theta_ja = 39.0379956611614 +
+                b * (-0.663824876539219) +
+                (1 / (b * b)) * 28.7235653135069 +
+                a * (-0.357102465393057) +
+                c * (-0.178043488320618) +
+                (1 / (c * c)) * 311.30904460375 +
+                d * 0.0114753166655902;
+
+            const theta_jc = 5.23726736538001 +
+                b * (-0.516880473293368) +
+                (1 / (b * b)) * 28.4451853325639 +
+                a * (-0.194784551463841) +
+                c * 0.387203475877243 +
+                (1 / (c * c)) * 191.57677905491 +
+                d * 0.00937330070404793;
+
+            const theta_jb = 15.1167149598567 +
+                b * (-0.95112143957899) +
+                (1 / (b * b)) * 22.6743247837687 +
+                a * 0.398215613872163 +
+                c * (-0.088586275963051) +
+                (1 / (c * c)) * 285.31603473006 +
+                d * (-0.0151079508572802);
+
+            const psi_jb = 13.8227803883029 +
+                b * (-0.90027507540361) +
+                (1 / (b * b)) * 22.9312264039533 +
+                a * 0.453354314523095 +
+                c * (-0.0415151867354009) +
+                (1 / (c * c)) * 289.344253868901 +
+                d * (-0.0213136502781262);
+
+            const psi_jt = -0.0629272029277957 +
+                b * 0.0251809447987806 +
+                (1 / (b * b)) * 5.71297608383525 +
+                a * 0.000342315817701276 +
+                c * (-0.0247918019053052) +
+                (1 / (c * c)) * 3.58449803802736 +
+                d * 0.000213945429820177;
+
+            displayResults(theta_ja, theta_jc, theta_jb, psi_jb, psi_jt);
+        }
+
+        function calculateQFN() {
+            // 获取输入值
+            const a = parseFloat(document.getElementById('qfnPackageSize').value);
+            const b = parseFloat(document.getElementById('qfnChipSize').value);
+            const c = parseFloat(document.getElementById('qfnPinNumber').value);
+            const d = parseFloat(document.getElementById('qfnLeadPitch').value);
+
+            // 验证输入
+            if (isNaN(a) || isNaN(b) || isNaN(c) || isNaN(d)) {
+                alert('请输入所有必需的数值参数！');
+                return;
+            }
+
+            if (a <= 0 || b <= 0 || c <= 0 || d <= 0) {
+                alert('所有参数必须大于0！');
+                return;
+            }
+
+            // 计算热阻值
+            const theta_ja = 65.198985026374 +
+                b * (-2.98111111111111) +
+                a * (-2.8448881231921) +
+                c * 0.0139790709545686 +
+                d * 1.23181895524927;
+
+            const theta_jc = 44.4246537348988 +
+                b * (-3.83555555555556) +
+                a * (-2.35932257103965) +
+                c * 0.00139101582440017 +
+                d * 0.0385911179173113;
+
+            const theta_jb = 28.9158078101072 +
+                b * (-3.11388888888889) +
+                a * (-1.18713884635018) +
+                c * 0.0440173557937723 +
+                d * 3.88201463331631;
+
+            const psi_jb = 28.6812059724349 +
+                b * (-3.08722222222222) +
+                a * (-1.19782839884295) +
+                c * 0.0410132720775906 +
+                d * 3.62480857580398;
+
+            const psi_jt = 1.46908541773013 +
+                b * (-0.145555555555556) +
+                a * (-0.0769197719925135) +
+                c * 0.0000663603879530724 +
+                d * 0.0129317679088042;
+
+            displayResults(theta_ja, theta_jc, theta_jb, psi_jb, psi_jt);
+        }
+
+        function calculateTFBGA() {
+            // 获取输入值
+            const a = parseFloat(document.getElementById('tfbgaPackageSize').value);
+            const b = parseFloat(document.getElementById('tfbgaBallCount').value);
+            const c = parseFloat(document.getElementById('tfbgaChipSize').value);
+            const d = parseFloat(document.getElementById('tfbgaBallPitch').value);
+            const e = parseFloat(document.getElementById('tfbgaMatrixLength').value);
+            const f = parseFloat(document.getElementById('tfbgaMatrixWidth').value);
+
+            // 验证输入
+            if (isNaN(a) || isNaN(b) || isNaN(c) || isNaN(d) || isNaN(e) || isNaN(f)) {
+                alert('请输入所有必需的数值参数！');
+                return;
+            }
+
+            if (a <= 0 || b <= 0 || c <= 0 || d <= 0 || e <= 0 || f <= 0) {
+                alert('所有参数必须大于0！');
+                return;
+            }
+
+            // 计算热阻值
+            const theta_ja = 23.1820656976165 +
+                a * 0.580343379329112 +
+                (1 / (a * a)) * 154.195764593086 +
+                b * 0.00147750594278834 +
+                c * (-2.0237417316308) +
+                (1 / (c * c)) * 112.93635271206 +
+                d * (-6.07943423590556) +
+                (1 / e) * 92.9817722933138 +
+                (1 / f) * 58.3124394436433;
+
+            const theta_jc = 1.77786093324147 +
+                a * 0.0447767619853948 +
+                (1 / (a * a)) * 82.676034813675 +
+                b * 0.0015456001612024 +
+                c * (-0.418580953461096) +
+                (1 / (c * c)) * 61.7534237022066 +
+                d * 0.517463131190298 +
+                (1 / e) * 22.4610552567275 +
+                (1 / f) * 8.44432278959618;
+
+            const theta_jb = 10.2023671545961 +
+                a * 0.728909802033241 +
+                (1 / (a * a)) * (-236.7651384) +
+                b * 0.001151503 +
+                c * (-2.060304287) +
+                (1 / (c * c)) * 113.2085883 +
+                d * (-6.605736604) +
+                (1 / e) * 100.6180013 +
+                (1 / f) * 58.22237602;
+
+            const psi_jb = 10.70921749 +
+                a * 0.606580116 +
+                (1 / (a * a)) * (-312.40734) +
+                b * 0.001670799 +
+                c * (-1.98115116) +
+                (1 / (c * c)) * 112.5496759 +
+                d * (-5.465447934) +
+                (1 / e) * 90.71353509 +
+                (1 / f) * 55.70808995;
+
+            const psi_jt = -0.106231847 +
+                a * (-0.004431494) +
+                (1 / (a * a)) * (-1.414819257) +
+                b * 0.00021484 +
+                c * (-0.003471369) +
+                (1 / (c * c)) * 4.23621801 +
+                d * 0.100497316 +
+                (1 / e) * 1.278400446 +
+                (1 / f) * 1.186110254;
+
+            displayResults(theta_ja, theta_jc, theta_jb, psi_jb, psi_jt);
+        }
+
+        function displayResults(theta_ja, theta_jc, theta_jb, psi_jb, psi_jt) {
+            // 保存计算结果
+            savedResults[currentPackageType] = {
+                theta_ja: theta_ja,
+                theta_jc: theta_jc,
+                theta_jb: theta_jb,
+                psi_jb: psi_jb,
+                psi_jt: psi_jt
+            };
+
+            // 显示结果
+            document.getElementById('theta-ja').innerHTML = theta_ja.toFixed(3) + '<span class="unit">°C/W</span>';
+            document.getElementById('theta-jc').innerHTML = theta_jc.toFixed(3) + '<span class="unit">°C/W</span>';
+            document.getElementById('theta-jb').innerHTML = theta_jb.toFixed(3) + '<span class="unit">°C/W</span>';
+            document.getElementById('psi-jb').innerHTML = psi_jb.toFixed(3) + '<span class="unit">°C/W</span>';
+            document.getElementById('psi-jt').innerHTML = psi_jt.toFixed(3) + '<span class="unit">°C/W</span>';
+
+            // 显示结果区域
+            document.getElementById('results').style.display = 'block';
+        }
+
+        // Reference Modal 功能
+        function showReference() {
+            document.getElementById('referenceModal').style.display = 'block';
+        }
+
+        function closeReference() {
+            document.getElementById('referenceModal').style.display = 'none';
+        }
+
+        // 点击模态框外部关闭
+        window.onclick = function (event) {
+            const modal = document.getElementById('referenceModal');
+            if (event.target === modal) {
+                modal.style.display = 'none';
+            }
+        }
+
+        // 添加回车键计算功能
+        document.addEventListener('keypress', function (event) {
+            if (event.key === 'Enter') {
+                calculateThermalResistance();
+            }
+        });
+    </script>
+</body>
+
+</html>

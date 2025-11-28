@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SEM照片测量系统</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .measurement-line {
+            stroke-width: 2;
+            stroke-dasharray: none;
+        }
+        .measurement-text {
+            font-family: Arial, sans-serif;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
+        }
+        .scale-line {
+            stroke-width: 3;
+            stroke: #ff0000;
+            stroke-dasharray: 5,5;
+        }
+        #canvas-container {
+            position: relative;
+            overflow: auto;
+            max-height: calc(100vh - 120px);
+        }
+        #measurement-canvas {
+            cursor: crosshair;
+            border: 2px solid #e5e7eb;
+        }
+        .control-section {
+            border-bottom: 1px solid #e5e7eb;
+            padding-bottom: 1rem;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Header -->
+    <header id="header-f8a3b2c1" class="bg-blue-600 text-white p-4 shadow-lg">
+        <h1 class="text-2xl font-bold text-center">SEM照片测量系统</h1>
+    </header>
+
+    <div class="flex h-screen">
+        <!-- Left Sidebar - Controls -->
+        <div id="left-sidebar-d4e5f6a7" class="w-80 bg-white shadow-lg p-4 overflow-y-auto">
+            <!-- Photo Upload Section -->
+            <div id="upload-section-b8c9d0e1" class="control-section">
+                <h3 class="text-lg font-semibold mb-3 text-gray-800">照片上传</h3>
+                <input type="file" id="photo-upload-a1b2c3d4" accept="image/*" 
+                       class="w-full p-2 border border-gray-300 rounded-lg cursor-pointer">
+                <div id="image-info-e5f6g7h8" class="mt-2 text-sm text-gray-600 hidden">
+                    <p>尺寸: <span id="image-dimensions-i9j0k1l2"></span></p>
+                </div>
+            </div>
+
+            <!-- Scale Setting Section -->
+            <div id="scale-section-m3n4o5p6" class="control-section">
+                <h3 class="text-lg font-semibold mb-3 text-gray-800">比例尺设置</h3>
+                <button id="set-scale-btn-q7r8s9t0" 
+                        class="w-full bg-green-500 hover:bg-green-600 text-white py-2 px-4 rounded-lg mb-3 disabled:bg-gray-400">
+                    设置比例尺
+                </button>
+                <div id="scale-input-section-u1v2w3x4" class="hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">实际长度:</label>
+                    <div class="flex gap-2">
+                        <input type="number" id="scale-length-y5z6a7b8" 
+                               class="flex-1 p-2 border border-gray-300 rounded" 
+                               placeholder="输入实际长度" step="0.001">
+                        <select id="scale-unit-c9d0e1f2" class="p-2 border border-gray-300 rounded">
+                            <option value="nm">nm</option>
+                            <option value="μm" selected>μm</option>
+                            <option value="mm">mm</option>
+                            <option value="cm">cm</option>
+                        </select>
+                    </div>
+                    <button id="confirm-scale-g3h4i5j6" 
+                            class="w-full bg-blue-500 hover:bg-blue-600 text-white py-2 px-4 rounded-lg mt-2">
+                        确认比例尺
+                    </button>
+                </div>
+                <div id="scale-info-k7l8m9n0" class="mt-2 text-sm text-gray-600 hidden">
+                    <p>比例: <span id="scale-ratio-o1p2q3r4">未设置</span></p>
+                </div>
+            </div>
+
+            <!-- Measurement Tools Section -->
+            <div id="measurement-section-s5t6u7v8" class="control-section">
+                <h3 class="text-lg font-semibold mb-3 text-gray-800">测量工具</h3>
+                <button id="measure-btn-w9x0y1z2" 
+                        class="w-full bg-purple-500 hover:bg-purple-600 text-white py-2 px-4 rounded-lg mb-3 disabled:bg-gray-400">
+                    开始测量
+                </button>
+                <div class="text-sm text-gray-600 mb-3">
+                    <p>• 点击开始测量后，在图片上画线</p>
+                    <p>• 按住Shift键可画水平/垂直线</p>
+                </div>
+            </div>
+
+            <!-- Annotation Controls Section -->
+            <div id="annotation-section-a3b4c5d6" class="control-section">
+                <h3 class="text-lg font-semibold mb-3 text-gray-800">标注设置</h3>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">线条颜色:</label>
+                    <input type="color" id="line-color-e7f8g9h0" value="#ff0000" 
+                           class="w-full h-10 border border-gray-300 rounded cursor-pointer">
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">线条粗细:</label>
+                    <input type="range" id="line-width-i1j2k3l4" min="1" max="10" value="2" 
+                           class="w-full">
+                    <span id="line-width-display-m5n6o7p8" class="text-sm text-gray-600">2px</span>
+                </div>
+                <div class="mb-3">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">字体大小:</label>
+                    <input type="range" id="font-size-q9r0s1t2" min="12" max="24" value="16" 
+                           class="w-full">
+                    <span id="font-size-display-u3v4w5x6" class="text-sm text-gray-600">16px</span>
+                </div>
+            </div>
+
+            <!-- Clear Controls -->
+            <div id="clear-section-y7z8a9b0">
+                <button id="clear-all-c1d2e3f4" 
+                        class="w-full bg-red-500 hover:bg-red-600 text-white py-2 px-4 rounded-lg">
+                    清除所有测量
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Canvas Area -->
+        <div id="main-area-g5h6i7j8" class="flex-1 p-4">
+            <div id="canvas-container" class="bg-white rounded-lg shadow-lg">
+                <canvas id="measurement-canvas-k9l0m1n2" class="block mx-auto"></canvas>
+                <div id="no-image-placeholder-o3p4q5r6" class="flex items-center justify-center h-96 text-gray-500">
+                    <div class="text-center">
+                        <svg class="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                        <p class="text-lg">请上传SEM照片开始测量</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Sidebar - Measurement Results -->
+        <div id="right-sidebar-s7t8u9v0" class="w-80 bg-white shadow-lg p-4 overflow-y-auto">
+            <h3 class="text-lg font-semibold mb-3 text-gray-800">测量结果</h3>
+            <div id="measurements-list-w1x2y3z4" class="space-y-2">
+                <p class="text-gray-500 text-center py-8">暂无测量数据</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Toolbar -->
+    <div id="bottom-toolbar-a5b6c7d8" class="bg-white border-t border-gray-200 p-4 flex justify-center gap-4">
+        <button id="export-btn-e9f0g1h2" 
+                class="bg-indigo-500 hover:bg-indigo-600 text-white py-2 px-6 rounded-lg disabled:bg-gray-400">
+            导出图片
+        </button>
+    </div>
+
+    <script>
+        class SEMMeasurementSystem {
+            constructor() {
+                this.canvas = document.getElementById('measurement-canvas-k9l0m1n2');
+                this.ctx = this.canvas.getContext('2d');
+                this.image = null;
+                this.scale = null; // pixels per unit
+                this.scaleUnit = 'μm';
+                this.measurements = [];
+                this.isDrawing = false;
+                this.isSettingScale = false;
+                this.isMeasuring = false;
+                this.startPoint = null;
+                this.currentLine = null;
+                this.lineColor = '#ff0000';
+                this.lineWidth = 2;
+                this.fontSize = 16;
+                
+                this.initializeEventListeners();
+            }
+
+            initializeEventListeners() {
+                // Photo upload
+                document.getElementById('photo-upload-a1b2c3d4').addEventListener('change', (e) => {
+                    this.loadImage(e.target.files[0]);
+                });
+
+                // Scale setting
+                document.getElementById('set-scale-btn-q7r8s9t0').addEventListener('click', () => {
+                    this.startScaleSetting();
+                });
+
+                document.getElementById('confirm-scale-g3h4i5j6').addEventListener('click', () => {
+                    this.confirmScale();
+                });
+
+                // Measurement
+                document.getElementById('measure-btn-w9x0y1z2').addEventListener('click', () => {
+                    this.startMeasuring();
+                });
+
+                // Annotation controls
+                document.getElementById('line-color-e7f8g9h0').addEventListener('change', (e) => {
+                    this.lineColor = e.target.value;
+                });
+
+                document.getElementById('line-width-i1j2k3l4').addEventListener('input', (e) => {
+                    this.lineWidth = parseInt(e.target.value);
+                    document.getElementById('line-width-display-m5n6o7p8').textContent = e.target.value + 'px';
+                });
+
+                document.getElementById('font-size-q9r0s1t2').addEventListener('input', (e) => {
+                    this.fontSize = parseInt(e.target.value);
+                    document.getElementById('font-size-display-u3v4w5x6').textContent = e.target.value + 'px';
+                    this.redraw();
+                });
+
+                // Clear all
+                document.getElementById('clear-all-c1d2e3f4').addEventListener('click', () => {
+                    this.clearAll();
+                });
+
+                // Export
+                document.getElementById('export-btn-e9f0g1h2').addEventListener('click', () => {
+                    this.exportImage();
+                });
+
+                // Canvas events
+                this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                this.canvas.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                this.canvas.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+                
+                // Keyboard events for shift constraint
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Shift') {
+                        this.shiftPressed = true;
+                    }
+                });
+                
+                document.addEventListener('keyup', (e) => {
+                    if (e.key === 'Shift') {
+                        this.shiftPressed = false;
+                    }
+                });
+            }
+
+            loadImage(file) {
+                if (!file) return;
+
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        this.image = img;
+                        this.setupCanvas();
+                        this.showImageInfo();
+                        this.enableControls();
+                        document.getElementById('no-image-placeholder-o3p4q5r6').style.display = 'none';
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+
+            setupCanvas() {
+                const container = document.getElementById('canvas-container');
+                const maxWidth = container.clientWidth - 40;
+                const maxHeight = container.clientHeight - 40;
+                
+                let canvasWidth = this.image.width;
+                let canvasHeight = this.image.height;
+                
+                // Scale down if image is too large
+                const scaleX = maxWidth / canvasWidth;
+                const scaleY = maxHeight / canvasHeight;
+                const scale = Math.min(scaleX, scaleY, 1);
+                
+                canvasWidth *= scale;
+                canvasHeight *= scale;
+                
+                this.canvas.width = canvasWidth;
+                this.canvas.height = canvasHeight;
+                this.canvas.style.display = 'block';
+                
+                this.imageScale = scale;
+                this.redraw();
+            }
+
+            showImageInfo() {
+                const info = document.getElementById('image-info-e5f6g7h8');
+                const dimensions = document.getElementById('image-dimensions-i9j0k1l2');
+                dimensions.textContent = `${this.image.width} × ${this.image.height}`;
+                info.classList.remove('hidden');
+            }
+
+            enableControls() {
+                document.getElementById('set-scale-btn-q7r8s9t0').disabled = false;
+                document.getElementById('export-btn-e9f0g1h2').disabled = false;
+            }
+
+            startScaleSetting() {
+                this.isSettingScale = true;
+                this.isMeasuring = false;
+                this.canvas.style.cursor = 'crosshair';
+                document.getElementById('set-scale-btn-q7r8s9t0').textContent = '在比例尺上画线';
+                document.getElementById('set-scale-btn-q7r8s9t0').classList.add('bg-yellow-500');
+            }
+
+            startMeasuring() {
+                if (!this.scale) {
+                    alert('请先设置比例尺');
+                    return;
+                }
+                this.isMeasuring = true;
+                this.isSettingScale = false;
+                this.canvas.style.cursor = 'crosshair';
+                document.getElementById('measure-btn-w9x0y1z2').textContent = '测量模式 (点击画线)';
+                document.getElementById('measure-btn-w9x0y1z2').classList.add('bg-yellow-500');
+            }
+
+            handleMouseDown(e) {
+                if (!this.image || (!this.isSettingScale && !this.isMeasuring)) return;
+
+                const rect = this.canvas.getBoundingClientRect();
+                this.startPoint = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+                this.isDrawing = true;
+            }
+
+            handleMouseMove(e) {
+                if (!this.isDrawing || !this.startPoint) return;
+
+                const rect = this.canvas.getBoundingClientRect();
+                let endPoint = {
+                    x: e.clientX - rect.left,
+                    y: e.clientY - rect.top
+                };
+
+                // Apply 90-degree constraint when Shift is pressed
+                if (this.shiftPressed) {
+                    const dx = Math.abs(endPoint.x - this.startPoint.x);
+                    const dy = Math.abs(endPoint.y - this.startPoint.y);
+                    
+                    if (dx > dy) {
+                        // Horizontal line
+                        endPoint.y = this.startPoint.y;
+                    } else {
+                        // Vertical line
+                        endPoint.x = this.startPoint.x;
+                    }
+                }
+
+                this.currentLine = {
+                    start: this.startPoint,
+                    end: endPoint,
+                    color: this.lineColor,
+                    width: this.lineWidth
+                };
+
+                this.redraw();
+                this.drawTemporaryLine();
+            }
+
+            handleMouseUp(e) {
+                if (!this.isDrawing || !this.currentLine) return;
+
+                this.isDrawing = false;
+
+                if (this.isSettingScale) {
+                    this.handleScaleLineComplete();
+                } else if (this.isMeasuring) {
+                    this.handleMeasurementComplete();
+                }
+
+                this.currentLine = null;
+            }
+
+            handleScaleLineComplete() {
+                const length = this.calculateDistance(this.currentLine.start, this.currentLine.end);
+                if (length < 10) {
+                    alert('比例尺线条太短，请重新绘制');
+                    return;
+                }
+
+                this.scaleLine = this.currentLine;
+                this.scaleLineLength = length;
+                
+                document.getElementById('scale-input-section-u1v2w3x4').classList.remove('hidden');
+                document.getElementById('set-scale-btn-q7r8s9t0').textContent = '设置比例尺';
+                document.getElementById('set-scale-btn-q7r8s9t0').classList.remove('bg-yellow-500');
+                this.isSettingScale = false;
+                this.redraw();
+            }
+
+            confirmScale() {
+                const lengthInput = document.getElementById('scale-length-y5z6a7b8');
+                const unitSelect = document.getElementById('scale-unit-c9d0e1f2');
+                
+                const actualLength = parseFloat(lengthInput.value);
+                if (!actualLength || actualLength <= 0) {
+                    alert('请输入有效的实际长度');
+                    return;
+                }
+
+                this.scale = this.scaleLineLength / actualLength;
+                this.scaleUnit = unitSelect.value;
+                
+                document.getElementById('scale-ratio-o1p2q3r4').textContent = 
+                    `1像素 = ${(1/this.scale).toFixed(4)} ${this.scaleUnit}`;
+                document.getElementById('scale-info-k7l8m9n0').classList.remove('hidden');
+                document.getElementById('measure-btn-w9x0y1z2').disabled = false;
+                
+                alert('比例尺设置成功！');
+            }
+
+            handleMeasurementComplete() {
+                const length = this.calculateDistance(this.currentLine.start, this.currentLine.end);
+                const actualLength = length / this.scale;
+                
+                const measurement = {
+                    id: Date.now(),
+                    line: this.currentLine,
+                    pixelLength: length,
+                    actualLength: actualLength,
+                    unit: this.scaleUnit
+                };
+
+                this.measurements.push(measurement);
+                this.updateMeasurementsList();
+                this.redraw();
+            }
+
+            calculateDistance(point1, point2) {
+                const dx = point2.x - point1.x;
+                const dy = point2.y - point1.y;
+                return Math.sqrt(dx * dx + dy * dy);
+            }
+
+            redraw() {
+                if (!this.image) return;
+
+                this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                this.ctx.drawImage(this.image, 0, 0, this.canvas.width, this.canvas.height);
+
+                // Draw scale line
+                if (this.scaleLine) {
+                    this.drawLine(this.scaleLine, true);
+                }
+
+                // Draw measurements
+                this.measurements.forEach(measurement => {
+                    this.drawLine(measurement.line);
+                    this.drawMeasurementText(measurement);
+                });
+            }
+
+            drawTemporaryLine() {
+                if (this.currentLine) {
+                    this.drawLine(this.currentLine, this.isSettingScale);
+                }
+            }
+
+            drawLine(line, isScale = false) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(line.start.x, line.start.y);
+                this.ctx.lineTo(line.end.x, line.end.y);
+                this.ctx.strokeStyle = isScale ? '#ff0000' : line.color;
+                this.ctx.lineWidth = line.width;
+                if (isScale) {
+                    this.ctx.setLineDash([5, 5]);
+                } else {
+                    this.ctx.setLineDash([]);
+                }
+                this.ctx.stroke();
+            }
+
+            drawMeasurementText(measurement) {
+                const midX = (measurement.line.start.x + measurement.line.end.x) / 2;
+                const midY = (measurement.line.start.y + measurement.line.end.y) / 2;
+                
+                const text = `${measurement.actualLength.toFixed(3)} ${measurement.unit}`;
+                
+                this.ctx.font = `${this.fontSize}px Arial`;
+                this.ctx.fillStyle = measurement.line.color;
+                this.ctx.textAlign = 'center';
+                this.ctx.textBaseline = 'middle';
+                
+                // Add text background
+                const metrics = this.ctx.measureText(text);
+                const padding = 4;
+                this.ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                this.ctx.fillRect(
+                    midX - metrics.width/2 - padding,
+                    midY - this.fontSize/2 - padding,
+                    metrics.width + padding*2,
+                    this.fontSize + padding*2
+                );
+                
+                this.ctx.fillStyle = measurement.line.color;
+                this.ctx.fillText(text, midX, midY);
+            }
+
+            updateMeasurementsList() {
+                const list = document.getElementById('measurements-list-w1x2y3z4');
+                
+                if (this.measurements.length === 0) {
+                    list.innerHTML = '<p class="text-gray-500 text-center py-8">暂无测量数据</p>';
+                    return;
+                }
+
+                list.innerHTML = this.measurements.map((measurement, index) => `
+                    <div class="bg-gray-50 p-3 rounded border">
+                        <div class="flex justify-between items-center">
+                            <span class="font-medium">测量 ${index + 1}</span>
+                            <button onclick="semSystem.removeMeasurement(${measurement.id})" 
+                                    class="text-red-500 hover:text-red-700">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="text-sm text-gray-600 mt-1">
+                            <div style="color: ${measurement.line.color}; font-weight: bold;">
+                                ${measurement.actualLength.toFixed(3)} ${measurement.unit}
+                            </div>
+                            <div>像素长度: ${measurement.pixelLength.toFixed(1)}px</div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            removeMeasurement(id) {
+                this.measurements = this.measurements.filter(m => m.id !== id);
+                this.updateMeasurementsList();
+                this.redraw();
+            }
+
+            clearAll() {
+                if (confirm('确定要清除所有测量数据吗？')) {
+                    this.measurements = [];
+                    this.scale = null;
+                    this.scaleLine = null;
+                    this.updateMeasurementsList();
+                    this.redraw();
+                    
+                    document.getElementById('scale-info-k7l8m9n0').classList.add('hidden');
+                    document.getElementById('scale-input-section-u1v2w3x4').classList.add('hidden');
+                    document.getElementById('measure-btn-w9x0y1z2').disabled = true;
+                    document.getElementById('measure-btn-w9x0y1z2').textContent = '开始测量';
+                    document.getElementById('measure-btn-w9x0y1z2').classList.remove('bg-yellow-500');
+                }
+            }
+
+            exportImage() {
+                if (!this.image) {
+                    alert('请先上传图片');
+                    return;
+                }
+
+                // Create a new canvas for export with original image size
+                const exportCanvas = document.createElement('canvas');
+                const exportCtx = exportCanvas.getContext('2d');
+                
+                exportCanvas.width = this.image.width;
+                exportCanvas.height = this.image.height;
+                
+                // Draw original image
+                exportCtx.drawImage(this.image, 0, 0);
+                
+                // Scale factor to convert canvas coordinates to original image coordinates
+                const scaleFactor = this.image.width / this.canvas.width;
+                
+                // Draw scale line
+                if (this.scaleLine) {
+                    this.drawLineOnExportCanvas(exportCtx, this.scaleLine, scaleFactor, true);
+                }
+                
+                // Draw measurements
+                this.measurements.forEach(measurement => {
+                    this.drawLineOnExportCanvas(exportCtx, measurement.line, scaleFactor);
+                    this.drawMeasurementTextOnExportCanvas(exportCtx, measurement, scaleFactor);
+                });
+                
+                // Download the image
+                const link = document.createElement('a');
+                link.download = `SEM_measurement_${new Date().getTime()}.png`;
+                link.href = exportCanvas.toDataURL();
+                link.click();
+            }
+
+            drawLineOnExportCanvas(ctx, line, scaleFactor, isScale = false) {
+                ctx.beginPath();
+                ctx.moveTo(line.start.x * scaleFactor, line.start.y * scaleFactor);
+                ctx.lineTo(line.end.x * scaleFactor, line.end.y * scaleFactor);
+                ctx.strokeStyle = isScale ? '#ff0000' : line.color;
+                ctx.lineWidth = line.width * scaleFactor;
+                if (isScale) {
+                    ctx.setLineDash([5 * scaleFactor, 5 * scaleFactor]);
+                } else {
+                    ctx.setLineDash([]);
+                }
+                ctx.stroke();
+            }
+
+            drawMeasurementTextOnExportCanvas(ctx, measurement, scaleFactor) {
+                const midX = (measurement.line.start.x + measurement.line.end.x) / 2 * scaleFactor;
+                const midY = (measurement.line.start.y + measurement.line.end.y) / 2 * scaleFactor;
+                
+                const text = `${measurement.actualLength.toFixed(3)} ${measurement.unit}`;
+                const fontSize = this.fontSize * scaleFactor;
+                
+                ctx.font = `${fontSize}px Arial`;
+                ctx.fillStyle = measurement.line.color;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // Add text background
+                const metrics = ctx.measureText(text);
+                const padding = 4 * scaleFactor;
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+                ctx.fillRect(
+                    midX - metrics.width/2 - padding,
+                    midY - fontSize/2 - padding,
+                    metrics.width + padding*2,
+                    fontSize + padding*2
+                );
+                
+                ctx.fillStyle = measurement.line.color;
+                ctx.fillText(text, midX, midY);
+            }
+        }
+
+        // Initialize the system
+        const semSystem = new SEMMeasurementSystem();
+    </script>
+</body>
+</html>
