@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>芯片印字标记生成器</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <div class="sidebar">
+            <h2>芯片印字标记生成器</h2>
+            
+            <div class="section">
+                <h3>芯片设置</h3>
+                <div class="control-group">
+                    <label>芯片宽度 (mm)：</label>
+                    <input type="number" id="chipWidth" value="7" min="1" max="20" step="0.1">
+                </div>
+                <div class="control-group">
+                    <label>芯片高度 (mm)：</label>
+                    <input type="number" id="chipHeight" value="7" min="1" max="20" step="0.1">
+                </div>
+                <div class="control-group">
+                    <label>芯片底色：</label>
+                    <input type="color" id="chipBgColor" value="#2c3e50">
+                </div>
+                <div class="control-group">
+                    <label>印字颜色：</label>
+                    <input type="color" id="textColor" value="#95a5a6">
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Pin1 设置</h3>
+                <div class="control-group">
+                    <label>大小：</label>
+                    <input type="range" id="pin1Size" min="10" max="100" value="25">
+                    <span id="pin1SizeValue">25</span>px
+                </div>
+            </div>
+
+            <div class="section">
+                <h3>Logo 图片</h3>
+                <div class="control-group">
+                    <label>上传 Logo (PNG)：</label>
+                    <input type="file" id="logoUpload" accept="image/png" style="font-size: 13px;">
+                </div>
+                <div id="logos"></div>
+            </div>
+
+            <div class="section">
+                <h3>印字内容</h3>
+                <div id="textLines"></div>
+                <button id="addLine" class="btn">+ 添加行</button>
+            </div>
+
+            <div class="section">
+                <h3>模板管理</h3>
+                <button id="saveTemplate" class="btn" style="margin-bottom: 10px;">💾 保存模板</button>
+                <div class="control-group">
+                    <label>导入模板：</label>
+                    <input type="file" id="loadTemplate" accept=".json" style="font-size: 13px;">
+                </div>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <div style="margin-bottom: 10px; font-size: 14px; color: #666;">
+                <strong>芯片尺寸：</strong><span id="canvasSizeInfo">7 × 7 mm (缩放: 100%)</span>
+            </div>
+            <canvas id="chipCanvas" width="600" height="600"></canvas>
+            <div class="tips">
+                <p>💡 提示：拖动 Pin1 圆点和文字可调整位置，文字会自动对齐</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
