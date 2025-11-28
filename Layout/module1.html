@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Layout计算器 - 功能模块1：载流能力计算</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+        }
+        body {
+            background-color: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background-color: #4a6fa5;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .back-button {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .back-button:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        .content {
+            padding: 30px;
+        }
+        .module {
+            margin-bottom: 30px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .module h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #4a6fa5;
+            font-size: 18px;
+        }
+        .module h3 {
+            color: #4a6fa5;
+            margin: 15px 0 15px 0;
+            font-size: 16px;
+        }
+        .calculator-section {
+            background-color: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #4a6fa5;
+        }
+        .calculate-btn {
+            background-color: #4a6fa5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 10px;
+            width: 100%;
+        }
+        .calculate-btn:hover {
+            background-color: #3a5a85;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4fd;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            display: none;
+        }
+        .result h3 {
+            color: #4a6fa5;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .result p {
+            color: #333;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .notes {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff9e6;
+            border-left: 4px solid #ffcc00;
+            font-size: 14px;
+            color: #666;
+        }
+        .notes h4 {
+            color: #cc9900;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .content {
+                padding: 20px;
+            }
+            .back-button {
+                position: static;
+                display: block;
+                margin-bottom: 15px;
+                transform: none;
+                width: 100%;
+            }
+            .header {
+                padding-bottom: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="back-button">返回主页面</a>
+            <h1>Layout计算器</h1>
+            <p>专业的PCB设计辅助工具</p>
+        </div>
+        <div class="content">
+            <!-- 功能模块1：载流能力计算 -->
+            <div class="module" id="current-calculator">
+                <h2>功能模块1：载流能力计算</h2>
+                
+                <!-- 走线载流能力计算 -->
+                <div class="calculator-section" id="trace-calculator-section">
+                    <h3>1. 走线载流能力计算</h3>
+                <form id="calculator-form">
+                    <div class="form-group">
+                        <label for="trace-width">1. 走线设计宽度（单位：μm）</label>
+                        <input type="number" id="trace-width" name="trace-width" step="0.1" min="0.1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="copper-thickness">2. 铜皮最小厚度（单位：μm）</label>
+                        <input type="number" id="copper-thickness" name="copper-thickness" step="0.1" min="0.1" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="substrate-tech">3. 基板工艺</label>
+                        <select id="substrate-tech" name="substrate-tech" required>
+                            <option value="Tenting">Tenting</option>
+                            <option value="MSAP">MSAP</option>
+                            <option value="SAP">SAP</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="trace-layer">4. 走线所在层</label>
+                        <select id="trace-layer" name="trace-layer" required>
+                            <option value="Inter">内层 (Inter)</option>
+                            <option value="Outer">外层 (Outer)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="temperature-rise">5. 目标温升（单位：℃）</label>
+                        <input type="number" id="temperature-rise" name="temperature-rise" step="0.1" min="0.1" required>
+                    </div>
+                    <button type="button" class="calculate-btn" onclick="calculateCurrent()">计算载流能力</button>
+                </form>
+                
+                <!-- 走线计算结果 -->
+                <div class="result" id="trace-result">
+                    <h3>走线载流能力计算结果</h3>
+                    <p>最大载流能力：<span id="trace-current-result">0</span> A</p>
+                </div>
+                </div>
+                
+                <!-- 过孔载流能力计算 -->
+                <div class="calculator-section" id="via-calculator-section">
+                    <h3>2. 过孔载流能力计算</h3>
+                    <form id="via-calculator-form">
+                        <div class="form-group">
+                            <label for="via-diameter">1. 过孔直径（单位：μm）</label>
+                            <input type="number" id="via-diameter" name="via-diameter" step="0.1" min="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="via-type">2. 过孔类型</label>
+                            <select id="via-type" name="via-type" required onchange="toggleViaCopperThickness()">
+                                <option value="Laser Via">Laser Via (激光孔)</option>
+                                <option value="Mechanical Hole">Mechanical Hole (机械孔)</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="via-position">3. 位置因子</label>
+                            <select id="via-position" name="via-position" required>
+                                <option value="Inter">内层 (Inter)</option>
+                                <option value="Outer">外层 (Outer)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="wall-copper-thickness-group" style="display: none;">
+                            <label for="wall-copper-thickness">4. 孔壁铜厚（单位：μm）</label>
+                            <input type="number" id="wall-copper-thickness" name="wall-copper-thickness" step="0.1" min="0.1">
+                        </div>
+                        <div class="form-group">
+                            <label for="via-temperature-rise">5. 目标温升（单位：℃）</label>
+                            <input type="number" id="via-temperature-rise" name="via-temperature-rise" step="0.1" min="0.1" required>
+                        </div>
+                        <button type="button" class="calculate-btn" onclick="calculateViaCurrent()">计算过孔载流能力</button>
+                    </form>
+                    
+                    <!-- 过孔计算结果 -->
+                    <div class="result" id="via-result">
+                        <h3>过孔载流能力计算结果</h3>
+                        <p>最大载流能力：<span id="via-current-result">0</span> A</p>
+                    </div>
+                </div>
+                
+                <div class="notes">
+                    <h4>计算公式说明：</h4>
+                    <p><strong>走线载流能力计算公式：</strong></p>
+                    <p>载流能力 = 位置因子 × POWER(目标温升, 0.44) × POWER((走线设计宽度(mil) - 蚀刻因子(mil)) × 铜皮最小厚度(mil), 0.725)</p>
+                    <p>其中：</p>
+                    <p>- 位置因子：内层(Inter)为0.024，外层(Outer)为0.0480</p>
+                    <p>- 蚀刻因子：Tenting工艺为15μm，MSAP工艺为7μm，SAP工艺为4μm</p>
+                    <p>注意：公式中的长度单位均为mil。1mil = 25.4μm</p>
+                    
+                    <p><strong>过孔载流能力计算公式：</strong></p>
+                    <p>激光孔：位置因子 × POWER(目标温升, 0.44) × POWER(3.1415926 × (颈铜直径/2)^2, 0.725)</p>
+                    <p>机械孔：位置因子 × POWER(目标温升, 0.44) × POWER(3.1415926 × ((过孔直径/2)^2 - ((过孔直径/2 - 孔壁铜厚)^2), 0.725)</p>
+                    <p>其中：</p>
+                    <p>- 位置因子：内层(Inter)为0.024，外层(Outer)为0.0480</p>
+                    <p>- 激光孔颈铜直径默认为35μm</p>
+                    <p>注意：公式中的长度单位均为mil。1mil = 25.4μm</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 定义转换常数
+        const MICRON_TO_MIL = 1 / 25.4; // 1μm = 1/25.4 mil
+        
+        // 定义位置因子和蚀刻因子（根据不同工艺和层别）
+        const factors = {
+            'Tenting': { etchFactorMicron: 15 },
+            'MSAP': { etchFactorMicron: 7 },
+            'SAP': { etchFactorMicron: 4 }
+        };
+        
+        // 位置因子根据层别定义
+        const positionFactors = {
+            'Inter': 0.024,
+            'Outer': 0.0480
+        };
+        
+        // 切换孔壁铜厚输入框的显示
+        function toggleViaCopperThickness() {
+            const viaType = document.getElementById('via-type').value;
+            const wallCopperThicknessGroup = document.getElementById('wall-copper-thickness-group');
+            
+            if (viaType === 'Mechanical Hole') {
+                wallCopperThicknessGroup.style.display = 'block';
+                document.getElementById('wall-copper-thickness').setAttribute('required', 'required');
+            } else {
+                wallCopperThicknessGroup.style.display = 'none';
+                document.getElementById('wall-copper-thickness').removeAttribute('required');
+            }
+        }
+        
+        // 计算走线载流能力
+        function calculateCurrent() {
+            // 获取输入值
+            const traceWidthMicron = parseFloat(document.getElementById('trace-width').value);
+            const copperThicknessMicron = parseFloat(document.getElementById('copper-thickness').value);
+            const substrateTech = document.getElementById('substrate-tech').value;
+            const traceLayer = document.getElementById('trace-layer').value;
+            const temperatureRise = parseFloat(document.getElementById('temperature-rise').value);
+            
+            // 验证输入
+            if (isNaN(traceWidthMicron) || isNaN(copperThicknessMicron) || isNaN(temperatureRise)) {
+                alert('请输入有效的数值！');
+                return;
+            }
+            
+            // 获取对应的因子
+            const positionFactor = positionFactors[traceLayer];
+            const etchFactorMicron = factors[substrateTech].etchFactorMicron;
+            
+            // 转换单位：μm 到 mil
+            const traceWidthMil = traceWidthMicron * MICRON_TO_MIL;
+            const copperThicknessMil = copperThicknessMicron * MICRON_TO_MIL;
+            const etchFactorMil = etchFactorMicron * MICRON_TO_MIL;
+            
+            // 计算载流能力
+            // 公式：位置因子 * POWER(目标温升, 0.44) * POWER((走线设计宽度(mil) - 蚀刻因子(mil)) * 铜皮最小厚度(mil), 0.725)
+            // 所有长度单位均使用mil
+            const currentCapacity = positionFactor * 
+                                   Math.pow(temperatureRise, 0.44) * 
+                                   Math.pow((traceWidthMil - etchFactorMil) * copperThicknessMil, 0.725);
+            
+            // 显示结果
+            document.getElementById('trace-current-result').textContent = currentCapacity.toFixed(3);
+            const resultDiv = document.getElementById('trace-result');
+            resultDiv.style.display = 'block';
+            
+            // 添加动画效果
+            resultDiv.style.opacity = '0';
+            setTimeout(() => {
+                resultDiv.style.transition = 'opacity 0.5s ease';
+                resultDiv.style.opacity = '1';
+            }, 10);
+        }
+        
+        // 计算过孔载流能力
+        function calculateViaCurrent() {
+            // 获取输入值
+            const viaDiameterMicron = parseFloat(document.getElementById('via-diameter').value);
+            const viaType = document.getElementById('via-type').value;
+            const viaPosition = document.getElementById('via-position').value;
+            const temperatureRise = parseFloat(document.getElementById('via-temperature-rise').value);
+            
+            // 验证基本输入
+            if (isNaN(viaDiameterMicron) || isNaN(temperatureRise)) {
+                alert('请输入有效的数值！');
+                return;
+            }
+            
+            // 转换单位：μm 到 mil
+            const viaDiameterMil = viaDiameterMicron * MICRON_TO_MIL;
+            
+            // 对于机械孔，验证孔壁铜厚
+            if (viaType === 'Mechanical Hole') {
+                const wallCopperThicknessMicron = parseFloat(document.getElementById('wall-copper-thickness').value);
+                if (isNaN(wallCopperThicknessMicron)) {
+                    alert('请输入有效的孔壁铜厚！');
+                    return;
+                }
+                
+                // 转换单位：μm 到 mil
+                const wallCopperThicknessMil = wallCopperThicknessMicron * MICRON_TO_MIL;
+                
+                // 计算机械孔载流能力
+                // 公式：位置因子 × POWER(目标温升, 0.44) × POWER(3.1415926 × ((过孔直径/2)^2 - ((过孔直径/2 - 孔壁铜厚)^2), 0.725)
+                // 所有长度单位均使用mil
+                const positionFactor = positionFactors[viaPosition];
+                const radius = viaDiameterMil / 2;
+                const innerRadius = radius - wallCopperThicknessMil;
+                // 计算截面积：π*(R² - r²)
+                const area = 3.1415926 * (Math.pow(radius, 2) - Math.pow(innerRadius, 2));
+                const currentCapacity = positionFactor * 
+                                       Math.pow(temperatureRise, 0.44) * 
+                                       Math.pow(area, 0.725);
+                
+                // 显示结果
+                document.getElementById('via-current-result').textContent = currentCapacity.toFixed(3);
+            } else {
+                // 激光孔计算
+                // 公式：位置因子 × POWER(目标温升, 0.44) × POWER(3.1415926 × (颈铜直径/2)^2, 0.725)
+                // 所有长度单位均使用mil
+                const positionFactor = positionFactors[viaPosition];
+                const neckCopperDiameterMicron = 35; // 激光孔颈铜直径默认为35μm
+                const neckCopperDiameterMil = neckCopperDiameterMicron * MICRON_TO_MIL; // 转换为mil
+                const neckRadius = neckCopperDiameterMil / 2;
+                // 计算截面积：π*r²
+                const area = 3.1415926 * Math.pow(neckRadius, 2);
+                const currentCapacity = positionFactor * 
+                                       Math.pow(temperatureRise, 0.44) * 
+                                       Math.pow(area, 0.725);
+                
+                // 显示结果
+                document.getElementById('via-current-result').textContent = currentCapacity.toFixed(3);
+            }
+            
+            // 显示结果区域并添加动画效果
+            const resultDiv = document.getElementById('via-result');
+            resultDiv.style.display = 'block';
+            resultDiv.style.opacity = '0';
+            setTimeout(() => {
+                resultDiv.style.transition = 'opacity 0.5s ease';
+                resultDiv.style.opacity = '1';
+            }, 10);
+        }
+        
+        // 添加键盘事件监听
+        document.getElementById('calculator-form').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                calculateCurrent();
+            }
+        });
+        
+        document.getElementById('via-calculator-form').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                calculateViaCurrent();
+            }
+        });
+        
+        // 初始化：根据默认选择的过孔类型设置孔壁铜厚输入框的显示状态
+        document.addEventListener('DOMContentLoaded', function() {
+            toggleViaCopperThickness();
+        });
+    </script>
+</body>
+</html>

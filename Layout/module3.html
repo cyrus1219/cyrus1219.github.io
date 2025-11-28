@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Layout计算器 - 功能模块3：信号转换计算</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+        }
+        body {
+            background-color: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background-color: #4a6fa5;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .back-button {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .back-button:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        .content {
+            padding: 30px;
+        }
+        .module {
+            margin-bottom: 30px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .module h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #4a6fa5;
+            font-size: 18px;
+        }
+        .module h3 {
+            color: #4a6fa5;
+            margin: 15px 0 15px 0;
+            font-size: 16px;
+        }
+        .calculator-section {
+            background-color: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #4a6fa5;
+        }
+        .calculate-btn {
+            background-color: #4a6fa5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 10px;
+            width: 100%;
+        }
+        .calculate-btn:hover {
+            background-color: #3a5a85;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4fd;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            display: none;
+        }
+        .result h3 {
+            color: #4a6fa5;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .result p {
+            color: #333;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .notes {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff9e6;
+            border-left: 4px solid #ffcc00;
+            font-size: 14px;
+            color: #666;
+        }
+        .notes h4 {
+            color: #cc9900;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        .radio-group {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            font-weight: normal;
+            cursor: pointer;
+        }
+        .radio-group input[type="radio"] {
+            width: auto;
+            margin-right: 5px;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .content {
+                padding: 20px;
+            }
+            .back-button {
+                position: static;
+                display: block;
+                margin-bottom: 15px;
+                transform: none;
+                width: 100%;
+            }
+            .header {
+                padding-bottom: 25px;
+            }
+            .radio-group {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="back-button">返回主页面</a>
+            <h1>Layout计算器</h1>
+            <p>专业的PCB设计辅助工具</p>
+        </div>
+        <div class="content">
+            <!-- 功能模块3：信号转换计算 -->
+            <div class="module" id="conversion-calculator">
+                <h2>功能模块3：信号转换计算</h2>
+                
+                <!-- %与dB结果转换 -->
+                <div class="calculator-section" id="db-percent-conversion-section">
+                    <h3>1. %与dB结果转换</h3>
+                    <form id="conversion-form">
+                        <div class="radio-group">
+                            <label>
+                                <input type="radio" name="conversion-type" value="percent-to-db" checked>
+                                % 转换为 dB
+                            </label>
+                            <label>
+                                <input type="radio" name="conversion-type" value="db-to-percent">
+                                dB 转换为 %
+                            </label>
+                        </div>
+                        
+                        <div id="resistance-input-group" class="form-group">
+                            <label for="resistance-value">参考电阻（Ω）：</label>
+                            <input type="number" id="resistance-value" name="resistance-value" step="0.1" min="0.1" value="50" required>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label id="input-label">输入百分比（%）：</label>
+                            <input type="number" id="input-value" name="input-value" step="0.1" min="0" required>
+                        </div>
+                        
+                        <button type="button" class="calculate-btn" onclick="calculateDbPercentConversion()">计算转换结果</button>
+                    </form>
+                    
+                    <!-- 计算结果 -->
+                    <div class="result" id="conversion-result">
+                        <h3>转换结果</h3>
+                        <p id="result-text">结果将显示在这里</p>
+                    </div>
+                </div>
+                
+                <div class="notes">
+                    <h4>计算公式说明：</h4>
+                    <p><strong>% 转换为 dB：</strong></p>
+                    <p>当百分比表示电压百分比时：dB = 20 * log10(百分比/100)</p>
+                    <p>当百分比表示功率百分比时：dB = 10 * log10(百分比/100)</p>
+                    <p><strong>dB 转换为 %：</strong></p>
+                    <p>当 dB 表示电压 dB 时：百分比 = 10^(dB/20) * 100</p>
+                    <p>当 dB 表示功率 dB 时：百分比 = 10^(dB/10) * 100</p>
+                    <p><strong>电阻设置说明：</strong></p>
+                    <p>当选择功率百分比转换为 dB 或从 dB 转换为功率百分比时，需要设置参考电阻值。</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 页面加载完成后添加事件监听
+        document.addEventListener('DOMContentLoaded', function() {
+            // 为转换类型单选按钮添加事件监听
+            const conversionTypeRadios = document.querySelectorAll('input[name="conversion-type"]');
+            conversionTypeRadios.forEach(radio => {
+                radio.addEventListener('change', toggleResistanceInput);
+            });
+            
+            // 初始化显示
+            toggleResistanceInput();
+            
+            // 为输入字段添加键盘事件监听
+            document.getElementById('conversion-form').addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    calculateDbPercentConversion();
+                }
+            });
+        });
+        
+        // 切换电阻输入字段的显示
+        function toggleResistanceInput() {
+            const conversionType = document.querySelector('input[name="conversion-type"]:checked').value;
+            const resistanceInputGroup = document.getElementById('resistance-input-group');
+            const inputLabel = document.getElementById('input-label');
+            
+            // 根据转换类型更新标签
+            if (conversionType === 'percent-to-db') {
+                inputLabel.textContent = '输入百分比（%）：';
+            } else {
+                inputLabel.textContent = '输入 dB 值：';
+            }
+            
+            // 根据转换类型决定是否显示电阻输入字段
+            // 如果我们需要支持功率百分比转换，这里会根据不同的选项显示或隐藏电阻输入
+            // 目前保持电阻输入字段始终显示
+            resistanceInputGroup.style.display = 'block';
+        }
+        
+        // 计算%与dB的转换结果
+        function calculateDbPercentConversion() {
+            // 获取转换类型
+            const conversionType = document.querySelector('input[name="conversion-type"]:checked').value;
+            
+            // 获取输入值
+            const inputValue = parseFloat(document.getElementById('input-value').value);
+            const resistanceValue = parseFloat(document.getElementById('resistance-value').value);
+            
+            // 验证输入
+            if (isNaN(inputValue) || (conversionType === 'percent-to-db' && inputValue < 0)) {
+                alert('请输入有效的数值！');
+                return;
+            }
+            
+            if (isNaN(resistanceValue) || resistanceValue <= 0) {
+                alert('请输入有效的参考电阻值！');
+                return;
+            }
+            
+            let result = 0;
+            let resultText = '';
+            
+            // 执行转换计算
+            if (conversionType === 'percent-to-db') {
+                // % 转换为 dB（假设是电压百分比）
+                const voltagePercent = inputValue;
+                result = 20 * Math.log10(voltagePercent / 100);
+                resultText = `${voltagePercent}% (电压百分比) = ${result.toFixed(6)} dB`;
+            } else {
+                // dB 转换为 %（假设是电压 dB）
+                const dbValue = inputValue;
+                result = Math.pow(10, dbValue / 20) * 100;
+                resultText = `${dbValue} dB (电压) = ${result.toFixed(6)}%`;
+            }
+            
+            // 显示结果
+            document.getElementById('result-text').textContent = resultText;
+            const resultDiv = document.getElementById('conversion-result');
+            resultDiv.style.display = 'block';
+            
+            // 添加动画效果
+            resultDiv.style.opacity = '0';
+            setTimeout(() => {
+                resultDiv.style.transition = 'opacity 0.5s ease';
+                resultDiv.style.opacity = '1';
+            }, 10);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Layout计算器 - 功能模块4：Bonding Wire/Bump计算</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+        }
+        body {
+            background-color: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background-color: #4a6fa5;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .back-button {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .back-button:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        .content {
+            padding: 30px;
+        }
+        .module {
+            margin-bottom: 30px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .module h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #4a6fa5;
+            font-size: 18px;
+        }
+        .module h3 {
+            color: #4a6fa5;
+            margin: 15px 0 15px 0;
+            font-size: 16px;
+        }
+        .calculator-section {
+            background-color: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #4a6fa5;
+        }
+        .calculate-btn {
+            background-color: #4a6fa5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 10px;
+            width: 100%;
+        }
+        .calculate-btn:hover {
+            background-color: #3a5a85;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4fd;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            display: none;
+        }
+        .result h3 {
+            color: #4a6fa5;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .result p {
+            color: #333;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .notes {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff9e6;
+            border-left: 4px solid #ffcc00;
+            font-size: 14px;
+            color: #666;
+        }
+        .notes h4 {
+            color: #cc9900;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .content {
+                padding: 20px;
+            }
+            .back-button {
+                position: static;
+                display: block;
+                margin-bottom: 15px;
+                transform: none;
+                width: 100%;
+            }
+            .header {
+                padding-bottom: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="back-button">返回主页面</a>
+            <h1>Layout计算器</h1>
+            <p>专业的PCB设计辅助工具</p>
+        </div>
+        <div class="content">
+            <!-- 功能模块4：Bonding Wire/Bump计算 -->
+            <div class="module" id="bonding-wire-calculator">
+                <h2>功能模块4：Bonding Wire/Bump计算</h2>
+                
+                <!-- Bonding wire/Bump参数计算 -->
+                <div class="calculator-section" id="bonding-wire-params-section">
+                    <h3>4.1 Bonding wire/Bump参数计算</h3>
+                    <form id="bonding-wire-params-form">
+                        <div class="form-group">
+                            <label for="wire-diameter">1. 线径（μm）</label>
+                            <input type="number" id="wire-diameter" name="wire-diameter" step="0.1" min="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="wire-length">2. 线长（μm）</label>
+                            <input type="number" id="wire-length" name="wire-length" step="0.1" min="0.1" required>
+                        </div>
+                        <button type="button" class="calculate-btn" onclick="calculateBondingWireParams()">计算参数</button>
+                    </form>
+                    
+                    <!-- 计算结果 -->
+                    <div class="result" id="bonding-wire-params-result">
+                        <h3>Bonding wire/Bump参数计算结果</h3>
+                        <p>横截面积：<span id="cross-section-area">0</span> um²</p>
+                        <p>直径（mil）：<span id="diameter-mil">0</span> mil</p>
+                        <p>长度（mil）：<span id="length-mil">0</span> mil</p>
+                        <p>电阻：<span id="resistance-value">0</span> mΩ</p>
+                    </div>
+                </div>
+                
+                <!-- Bonding wire/Bump电感计算 -->
+                <div class="calculator-section" id="bonding-wire-inductance-section">
+                    <h3>4.2 Bonding wire/Bump电感计算</h3>
+                    <form id="bonding-wire-inductance-form">
+                        <div class="form-group">
+                            <label for="inductance-wire-diameter">1. 线径（μm）</label>
+                            <input type="number" id="inductance-wire-diameter" name="inductance-wire-diameter" step="0.1" min="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="inductance-wire-length">2. 线长（μm）</label>
+                            <input type="number" id="inductance-wire-length" name="inductance-wire-length" step="0.1" min="0.1" required>
+                        </div>
+                        <button type="button" class="calculate-btn" onclick="calculateInductance()">计算电感</button>
+                    </form>
+                    
+                    <!-- 计算结果 -->
+                    <div class="result" id="bonding-wire-inductance-result">
+                        <h3>Bonding wire/Bump电感计算结果</h3>
+                        <p>电感：<span id="inductance-result-value">0</span> nH</p>
+                    </div>
+                </div>
+                
+                <div class="notes">
+                    <h4>计算公式说明：</h4>
+                    <p><strong>Bonding wire/Bump参数计算：</strong></p>
+                    <p>横截面积（μm²）= 3.14 * (线径/2)²</p>
+                    <p>直径（mil）= 线径（μm） / 25.4</p>
+                    <p>长度（mil）= 线长（μm） / 25.4</p>
+                    <p>电阻（mΩ）= (线长（cm） * 1.75e-6) / (横截面积（cm²）) * 1000</p>
+                    <p>注意：计算电阻时需要先进行单位转换：1cm = 10000μm，1cm² = 1e8μm²</p>
+                    <p><strong>Bonding wire/Bump电感计算：</strong></p>
+                    <p>电感（nH）= 0.002 * 线长（cm） * (ln(4 * 线长（cm） / 线径（cm）) - 0.75)</p>
+                    <p>注意：计算电感时需要先将μm转换为cm：1cm = 10000μm</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 计算Bonding wire/Bump参数
+        function calculateBondingWireParams() {
+            // 获取输入值
+            const wireDiameterMicron = parseFloat(document.getElementById('wire-diameter').value);
+            const wireLengthMicron = parseFloat(document.getElementById('wire-length').value);
+            
+            // 验证输入
+            if (isNaN(wireDiameterMicron) || isNaN(wireLengthMicron) || wireDiameterMicron <= 0 || wireLengthMicron <= 0) {
+                alert('请输入有效的数值！');
+                return;
+            }
+            
+            // 计算横截面积（μm²）= 3.14 * (线径/2)²
+            const crossSectionArea = Math.PI * Math.pow(wireDiameterMicron / 2, 2);
+            
+            // 转换为直径（mil）= 线径（μm） / 25.4
+            const diameterMil = wireDiameterMicron / 25.4;
+            
+            // 转换为长度（mil）= 线长（μm） / 25.4
+            const lengthMil = wireLengthMicron / 25.4;
+            
+            // 计算电阻
+            // 首先转换单位：1cm = 10000μm，1cm² = 1e8μm²
+            const wireLengthCm = wireLengthMicron / 10000;
+            const crossSectionAreaCm2 = crossSectionArea / 1e8;
+            
+            // 铜的电阻率：1.75e-6 Ω·cm
+            const resistivity = 1.75e-6;
+            const resistance = (wireLengthCm * resistivity) / crossSectionAreaCm2 * 1000; // 转换为mΩ
+            
+            // 显示结果
+            document.getElementById('cross-section-area').textContent = crossSectionArea.toFixed(6);
+            document.getElementById('diameter-mil').textContent = diameterMil.toFixed(6);
+            document.getElementById('length-mil').textContent = lengthMil.toFixed(6);
+            document.getElementById('resistance-value').textContent = resistance.toFixed(6);
+            
+            const resultDiv = document.getElementById('bonding-wire-params-result');
+            resultDiv.style.display = 'block';
+            
+            // 添加动画效果
+            resultDiv.style.opacity = '0';
+            setTimeout(() => {
+                resultDiv.style.transition = 'opacity 0.5s ease';
+                resultDiv.style.opacity = '1';
+            }, 10);
+        }
+        
+        // 添加Bonding wire参数表单的键盘事件监听
+        document.getElementById('bonding-wire-params-form').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                calculateBondingWireParams();
+            }
+        });
+        
+        // 计算Bonding wire/Bump电感
+        function calculateInductance() {
+            // 获取输入值
+            const wireDiameterMicron = parseFloat(document.getElementById('inductance-wire-diameter').value);
+            const wireLengthMicron = parseFloat(document.getElementById('inductance-wire-length').value);
+            
+            // 验证输入
+            if (isNaN(wireDiameterMicron) || isNaN(wireLengthMicron) || wireDiameterMicron <= 0 || wireLengthMicron <= 0) {
+                alert('请输入有效的数值！');
+                return;
+            }
+            
+            // 转换单位：μm 到 cm（1cm = 10000μm）
+            const wireDiameterCm = wireDiameterMicron / 10000;
+            const wireLengthCm = wireLengthMicron / 10000;
+            
+            // 验证线长必须大于线径
+            if (wireLengthCm <= wireDiameterCm) {
+                alert('线长必须大于线径！');
+                return;
+            }
+            
+            // 计算公式：电感（nH）= 0.002 * 线长（cm） * (ln(4 * 线长（cm） / 线径（cm）) - 0.75)
+            const inductance = 0.002 * wireLengthCm * (Math.log(4 * wireLengthCm / wireDiameterCm) - 0.75);
+            
+            // 显示结果
+            document.getElementById('inductance-result-value').textContent = inductance.toFixed(6);
+            
+            const resultDiv = document.getElementById('bonding-wire-inductance-result');
+            resultDiv.style.display = 'block';
+            
+            // 添加动画效果
+            resultDiv.style.opacity = '0';
+            setTimeout(() => {
+                resultDiv.style.transition = 'opacity 0.5s ease';
+                resultDiv.style.opacity = '1';
+            }, 10);
+        }
+        
+        // 添加Bonding wire电感表单的键盘事件监听
+        document.getElementById('bonding-wire-inductance-form').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                calculateInductance();
+            }
+        });
+    </script>
+</body>
+</html>

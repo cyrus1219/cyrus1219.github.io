@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Layout计算器 - 功能模块2：电性能计算</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+        }
+        body {
+            background-color: #f5f5f5;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+        }
+        .header {
+            background-color: #4a6fa5;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            position: relative;
+        }
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .back-button {
+            position: absolute;
+            left: 20px;
+            top: 50%;
+            transform: translateY(-50%);
+            background-color: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .back-button:hover {
+            background-color: rgba(255, 255, 255, 0.3);
+        }
+        .content {
+            padding: 30px;
+        }
+        .module {
+            margin-bottom: 30px;
+            border: 1px solid #e0e0e0;
+            border-radius: 6px;
+            padding: 20px;
+            background-color: #f9f9f9;
+        }
+        .module h2 {
+            color: #333;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #4a6fa5;
+            font-size: 18px;
+        }
+        .module h3 {
+            color: #4a6fa5;
+            margin: 15px 0 15px 0;
+            font-size: 16px;
+        }
+        .calculator-section {
+            background-color: white;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            color: #555;
+            font-weight: 500;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #4a6fa5;
+        }
+        .calculate-btn {
+            background-color: #4a6fa5;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+            margin-top: 10px;
+            width: 100%;
+        }
+        .calculate-btn:hover {
+            background-color: #3a5a85;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4fd;
+            border: 1px solid #b3d9ff;
+            border-radius: 4px;
+            display: none;
+        }
+        .result h3 {
+            color: #4a6fa5;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .result p {
+            color: #333;
+            font-size: 18px;
+            font-weight: bold;
+        }
+        .notes {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff9e6;
+            border-left: 4px solid #ffcc00;
+            font-size: 14px;
+            color: #666;
+        }
+        .notes h4 {
+            color: #cc9900;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+            .content {
+                padding: 20px;
+            }
+            .back-button {
+                position: static;
+                display: block;
+                margin-bottom: 15px;
+                transform: none;
+                width: 100%;
+            }
+            .header {
+                padding-bottom: 25px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <a href="index.html" class="back-button">返回主页面</a>
+            <h1>Layout计算器</h1>
+            <p>专业的PCB设计辅助工具</p>
+        </div>
+        <div class="content">
+            <!-- 功能模块2：电性能计算 -->
+            <div class="module" id="electrical-calculator">
+                <h2>功能模块2：电性能计算</h2>
+                
+                <!-- 走线延时估算（基于走线长度和DK值） -->
+                <div class="calculator-section" id="delay-calculator-section">
+                    <h3>1. 走线延时估算（基于走线长度和DK值）</h3>
+                    <form id="delay-length-form">
+                        <div class="form-group">
+                            <label for="trace-length">1. 走线长度（单位：μm）</label>
+                            <input type="number" id="trace-length" name="trace-length" step="0.1" min="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="dk-value">2. DK值</label>
+                            <input type="number" id="dk-value" name="dk-value" step="0.01" min="1.0" required>
+                        </div>
+                        <button type="button" class="calculate-btn" onclick="calculateDelayByLength()">计算走线延时</button>
+                    </form>
+                    
+                    <!-- 计算结果 -->
+                    <div class="result" id="delay-length-result">
+                        <h3>走线延时计算结果</h3>
+                        <p>走线延时：<span id="delay-length-value">0</span> ps</p>
+                    </div>
+                </div>
+                
+                <!-- 走线延时估算（基于电感和电容） -->
+                <div class="calculator-section" id="delay-lc-calculator-section">
+                    <h3>2. 走线延时估算（基于电感和电容）</h3>
+                    <form id="delay-lc-form">
+                        <div class="form-group">
+                            <label for="inductance">1. 电感（单位：nH）</label>
+                            <input type="number" id="inductance" name="inductance" step="0.01" min="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="capacitance">2. 电容（单位：pF）</label>
+                            <input type="number" id="capacitance" name="capacitance" step="0.01" min="0.01" required>
+                        </div>
+                        <button type="button" class="calculate-btn" onclick="calculateDelayByLC()">计算走线延时</button>
+                    </form>
+                    
+                    <!-- 计算结果 -->
+                    <div class="result" id="delay-lc-result">
+                        <h3>走线延时计算结果</h3>
+                        <p>走线延时：<span id="delay-lc-value">0</span> ps</p>
+                    </div>
+                </div>
+                
+                <!-- 过孔参数计算 -->
+                <div class="calculator-section" id="via-params-calculator-section">
+                    <h3>3. 过孔参数计算</h3>
+                    <form id="via-params-form">
+                        <div class="form-group">
+                            <label for="via-diameter-param">1. 过孔直径（单位：μm）</label>
+                            <input type="number" id="via-diameter-param" name="via-diameter-param" step="0.1" min="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="pad-diameter">2. 孔盘直径（单位：μm）</label>
+                            <input type="number" id="pad-diameter" name="pad-diameter" step="0.1" min="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="anti-pad-diameter">3. 反焊盘直径（单位：μm）</label>
+                            <input type="number" id="anti-pad-diameter" name="anti-pad-diameter" step="0.1" min="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="via-length">4. 过孔长度（单位：μm）</label>
+                            <input type="number" id="via-length" name="via-length" step="0.1" min="0.1" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="dk-value-via">5. DK值</label>
+                            <input type="number" id="dk-value-via" name="dk-value-via" step="0.01" min="1.0" required>
+                        </div>
+                        <button type="button" class="calculate-btn" onclick="calculateViaParams()">计算过孔参数</button>
+                    </form>
+                    
+                    <!-- 计算结果 -->
+                    <div class="result" id="via-params-result">
+                        <h3>过孔参数计算结果</h3>
+                        <p>过孔电容：<span id="via-capacitance-value">0</span> pF</p>
+                        <p>过孔电感：<span id="via-inductance-value">0</span> nH</p>
+                        <p>过孔延时：<span id="via-delay-value">0</span> ps</p>
+                    </div>
+                </div>
+                
+                <!-- 前沿空间长度计算 -->
+                <div class="calculator-section" id="edge-length-calculator-section">
+                    <h3>4. 前沿空间长度计算</h3>
+                    <form id="edge-length-form">
+                        <div class="form-group">
+                            <label for="dk-value-edge">1. DK值</label>
+                            <input type="number" id="dk-value-edge" name="dk-value-edge" step="0.01" min="1.0" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="rise-time">2. 信号上升沿（单位：ns）</label>
+                            <input type="number" id="rise-time" name="rise-time" step="0.01" min="0.01" required>
+                        </div>
+                        <button type="button" class="calculate-btn" onclick="calculateEdgeLength()">计算前沿空间长度</button>
+                    </form>
+                    
+                    <!-- 计算结果 -->
+                    <div class="result" id="edge-length-result">
+                        <h3>前沿空间长度计算结果</h3>
+                        <p>前沿空间长度：<span id="edge-length-value-inch">0</span> inch（<span id="edge-length-value-mm">0</span> mm）</p>
+                    </div>
+                </div>
+                
+                <!-- 信号带宽计算 -->
+                <div class="calculator-section" id="signal-bandwidth-section">
+                    <h3>5. 信号带宽计算</h3>
+                    <form id="bandwidth-form">
+                        <div class="form-group">
+                            <label for="signal-rise-time">1. 信号上升沿（单位：ns）</label>
+                            <input type="number" id="signal-rise-time" name="signal-rise-time" step="0.01" min="0.01" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="bandwidth-type">2. 选择项：</label>
+                            <select id="bandwidth-type" name="bandwidth-type" required>
+                                <option value="SI">SI（信号完整性）</option>
+                                <option value="EMI">EMI（电磁干扰）</option>
+                            </select>
+                        </div>
+                        <button type="button" class="calculate-btn" onclick="calculateSignalBandwidth()">计算信号带宽</button>
+                    </form>
+                    
+                    <!-- 计算结果 -->
+                    <div class="result" id="bandwidth-result">
+                        <h3>信号带宽计算结果</h3>
+                        <p>信号带宽：<span id="bandwidth-value">0</span> GHz</p>
+                    </div>
+                </div>
+                
+                <div class="notes">
+                    <h4>计算公式说明：</h4>
+                    <p><strong>走线延时估算（基于走线长度和DK值）：</strong></p>
+                    <p>走线延时（ps）= 走线长度（inch）/(12/sqrt（DK值））* 1000</p>
+                    <p><strong>走线延时估算（基于电感和电容）：</strong></p>
+                    <p>走线延时（ps）= sqrt(电感*电容*1000）</p>
+                    <p><strong>过孔参数计算：</strong></p>
+                    <p>过孔电容pF = 1.41*DK值*孔盘直径*过孔长度/(反焊盘直径-孔盘直径）</p>
+                    <p>过孔电感nH = 5.08*过孔长度*(1+LN((4*过孔长度)/过孔直径))</p>
+                    <p>过孔延时ps = sqrt(电感*电容*1000）</p>
+                    <p>注意：计算时需要将um转化为inch再计算。1英寸（inch）= 25400微米（μm）</p>
+                    <p><strong>前沿空间长度计算：</strong></p>
+                    <p>前沿空间长度（inch）= 1/6*(12/sqrt(DK值))*信号上升沿</p>
+                    <p>转换为毫米：1英寸（inch）= 25.4毫米（mm）</p>
+                    <p><strong>信号带宽计算：</strong></p>
+                    <p>选择SI（信号完整性）时：带宽（GHz）= 0.35/信号上升沿</p>
+                    <p>选择EMI（电磁干扰）时：带宽（GHz）= 0.5/信号上升沿</p>
+                    <p>其中：</p>
+                    <p>- 走线长度单位转换：1英寸（inch）= 25400微米（μm）</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 计算基于走线长度和DK值的延时
+        function calculateDelayByLength() {
+            // 获取输入值
+            const traceLengthMicron = parseFloat(document.getElementById('trace-length').value);
+            const dkValue = parseFloat(document.getElementById('dk-value').value);
+            
+            // 验证输入
+            if (isNaN(traceLengthMicron) || isNaN(dkValue) || dkValue <= 0) {
+                alert('请输入有效的数值！');
+                return;
+            }
+            
+            // 转换单位：μm 到 inch（1英寸 = 25400微米）
+            const traceLengthInch = traceLengthMicron / 25400;
+            
+            // 计算公式：走线延时（ps）= 走线长度（inch）/(12/sqrt（DK值））* 1000
+            const delay = traceLengthInch / (12 / Math.sqrt(dkValue)) * 1000;
+            
+            // 显示结果
+            document.getElementById('delay-length-value').textContent = delay.toFixed(3);
+            const resultDiv = document.getElementById('delay-length-result');
+            resultDiv.style.display = 'block';
+            
+            // 添加动画效果
+            resultDiv.style.opacity = '0';
+            setTimeout(() => {
+                resultDiv.style.transition = 'opacity 0.5s ease';
+                resultDiv.style.opacity = '1';
+            }, 10);
+        }
+        
+        // 计算基于电感和电容的延时
+        function calculateDelayByLC() {
+            // 获取输入值
+            const inductance = parseFloat(document.getElementById('inductance').value);
+            const capacitance = parseFloat(document.getElementById('capacitance').value);
+            
+            // 验证输入
+            if (isNaN(inductance) || isNaN(capacitance) || inductance <= 0 || capacitance <= 0) {
+                alert('请输入有效的数值！');
+                return;
+            }
+            
+            // 计算公式：走线延时（ps）= sqrt(电感*电容*1000）
+            const delay = Math.sqrt(inductance * capacitance * 1000);
+            
+            // 显示结果
+            document.getElementById('delay-lc-value').textContent = delay.toFixed(3);
+            const resultDiv = document.getElementById('delay-lc-result');
+            resultDiv.style.display = 'block';
+            
+            // 添加动画效果
+            resultDiv.style.opacity = '0';
+            setTimeout(() => {
+                resultDiv.style.transition = 'opacity 0.5s ease';
+                resultDiv.style.opacity = '1';
+            }, 10);
+        }
+        
+        // 添加键盘事件监听
+        document.getElementById('delay-length-form').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                calculateDelayByLength();
+            }
+        });
+        
+        document.getElementById('delay-lc-form').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                calculateDelayByLC();
+            }
+        });
+        
+        // 计算过孔参数
+        function calculateViaParams() {
+            // 获取输入值
+            const viaDiameterMicron = parseFloat(document.getElementById('via-diameter-param').value);
+            const padDiameterMicron = parseFloat(document.getElementById('pad-diameter').value);
+            const antiPadDiameterMicron = parseFloat(document.getElementById('anti-pad-diameter').value);
+            const viaLengthMicron = parseFloat(document.getElementById('via-length').value);
+            const dkValueVia = parseFloat(document.getElementById('dk-value-via').value);
+            
+            // 验证输入
+            if (isNaN(viaDiameterMicron) || isNaN(padDiameterMicron) || isNaN(antiPadDiameterMicron) || 
+                isNaN(viaLengthMicron) || isNaN(dkValueVia) || 
+                viaDiameterMicron <= 0 || padDiameterMicron <= 0 || antiPadDiameterMicron <= 0 || 
+                viaLengthMicron <= 0 || dkValueVia <= 0) {
+                alert('请输入有效的数值！');
+                return;
+            }
+            
+            // 验证反焊盘直径必须大于孔盘直径
+            if (antiPadDiameterMicron <= padDiameterMicron) {
+                alert('反焊盘直径必须大于孔盘直径！');
+                return;
+            }
+            
+            // 转换单位：μm 到 inch（1英寸 = 25400微米）
+            const viaDiameterInch = viaDiameterMicron / 25400;
+            const padDiameterInch = padDiameterMicron / 25400;
+            const antiPadDiameterInch = antiPadDiameterMicron / 25400;
+            const viaLengthInch = viaLengthMicron / 25400;
+            
+            // 计算过孔电容 pF
+            // 公式：1.41*DK值*孔盘直径*过孔长度/(反焊盘直径-孔盘直径）
+            const viaCapacitance = 1.41 * dkValueVia * padDiameterInch * viaLengthInch / (antiPadDiameterInch - padDiameterInch);
+            
+            // 计算过孔电感 nH
+            // 公式：5.08*过孔长度*(1+LN((4*过孔长度)/过孔直径))
+            const viaInductance = 5.08 * viaLengthInch * (1 + Math.log((4 * viaLengthInch) / viaDiameterInch));
+            
+            // 计算过孔延时 ps
+            // 公式：sqrt(电感*电容*1000）
+            const viaDelay = Math.sqrt(viaInductance * viaCapacitance * 1000);
+            
+            // 显示结果
+            document.getElementById('via-capacitance-value').textContent = viaCapacitance.toFixed(6);
+            document.getElementById('via-inductance-value').textContent = viaInductance.toFixed(6);
+            document.getElementById('via-delay-value').textContent = viaDelay.toFixed(3);
+            
+            const resultDiv = document.getElementById('via-params-result');
+            resultDiv.style.display = 'block';
+            
+            // 添加动画效果
+            resultDiv.style.opacity = '0';
+            setTimeout(() => {
+                resultDiv.style.transition = 'opacity 0.5s ease';
+                resultDiv.style.opacity = '1';
+            }, 10);
+        }
+        
+        // 添加过孔参数表单的键盘事件监听
+        document.getElementById('via-params-form').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                calculateViaParams();
+            }
+        });
+        
+        // 计算前沿空间长度
+        function calculateEdgeLength() {
+            // 获取输入值
+            const dkValueEdge = parseFloat(document.getElementById('dk-value-edge').value);
+            const riseTime = parseFloat(document.getElementById('rise-time').value);
+            
+            // 验证输入
+            if (isNaN(dkValueEdge) || isNaN(riseTime) || dkValueEdge <= 0 || riseTime <= 0) {
+                alert('请输入有效的数值！');
+                return;
+            }
+            
+            // 计算公式：前沿空间长度（inch）= 1/6*(12/sqrt(DK值))*信号上升沿
+            const edgeLengthInch = (1/6) * (12 / Math.sqrt(dkValueEdge)) * riseTime;
+            
+            // 转换为毫米：1英寸 = 25.4毫米
+            const edgeLengthMm = edgeLengthInch * 25.4;
+            
+            // 显示结果
+            document.getElementById('edge-length-value-inch').textContent = edgeLengthInch.toFixed(6);
+            document.getElementById('edge-length-value-mm').textContent = edgeLengthMm.toFixed(6);
+            
+            const resultDiv = document.getElementById('edge-length-result');
+            resultDiv.style.display = 'block';
+            
+            // 添加动画效果
+            resultDiv.style.opacity = '0';
+            setTimeout(() => {
+                resultDiv.style.transition = 'opacity 0.5s ease';
+                resultDiv.style.opacity = '1';
+            }, 10);
+        }
+        
+        // 添加前沿空间长度表单的键盘事件监听
+        document.getElementById('edge-length-form').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                calculateEdgeLength();
+            }
+        });
+        
+        // 计算信号带宽
+        function calculateSignalBandwidth() {
+            // 获取输入值
+            const signalRiseTime = parseFloat(document.getElementById('signal-rise-time').value);
+            const bandwidthType = document.getElementById('bandwidth-type').value;
+            
+            // 验证输入
+            if (isNaN(signalRiseTime) || signalRiseTime <= 0) {
+                alert('请输入有效的信号上升沿数值！');
+                return;
+            }
+            
+            let bandwidthGHz;
+            
+            // 根据选择项计算带宽
+            if (bandwidthType === 'SI') {
+                // 选择SI时：带宽（GHz）= 0.35/信号上升沿
+                bandwidthGHz = 0.35 / signalRiseTime;
+            } else {
+                // 选择EMI时：带宽（GHz）= 0.5/信号上升沿
+                bandwidthGHz = 0.5 / signalRiseTime;
+            }
+            
+            // 显示结果
+            document.getElementById('bandwidth-value').textContent = bandwidthGHz.toFixed(6);
+            
+            const resultDiv = document.getElementById('bandwidth-result');
+            resultDiv.style.display = 'block';
+            
+            // 添加动画效果
+            resultDiv.style.opacity = '0';
+            setTimeout(() => {
+                resultDiv.style.transition = 'opacity 0.5s ease';
+                resultDiv.style.opacity = '1';
+            }, 10);
+        }
+        
+        // 添加信号带宽表单的键盘事件监听
+        document.getElementById('bandwidth-form').addEventListener('keydown', function(event) {
+            if (event.key === 'Enter') {
+                event.preventDefault();
+                calculateSignalBandwidth();
+            }
+        });
+    </script>
+</body>
+</html>
