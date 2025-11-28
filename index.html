@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>工具集合</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+        }
+
+        h1 {
+            text-align: center;
+            color: white;
+            margin-bottom: 40px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+
+        .tool-card {
+            background: white;
+            border-radius: 12px;
+            padding: 30px;
+            text-align: center;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            text-decoration: none;
+            color: #333;
+            display: block;
+        }
+
+        .tool-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 15px rgba(0,0,0,0.2);
+        }
+
+        .tool-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+
+        .tool-title {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+
+        .tool-desc {
+            font-size: 0.9em;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛠️ 工具集合</h1>
+        <div class="tools-grid">
+            <a href="IMC计算器.html" class="tool-card">
+                <div class="tool-icon">🧮</div>
+                <div class="tool-title">IMC计算器</div>
+                <div class="tool-desc">IMC占比计算工具</div>
+            </a>
+
+            <a href="SEM图片量测.html" class="tool-card">
+                <div class="tool-icon">📏</div>
+                <div class="tool-title">SEM图片量测</div>
+                <div class="tool-desc">扫描电镜图片测量工具</div>
+            </a>
+
+            <a href="thermal-calculator.html" class="tool-card">
+                <div class="tool-icon">🌡️</div>
+                <div class="tool-title">热阻计算器</div>
+                <div class="tool-desc">热阻计算工具</div>
+            </a>
+
+            <a href="Wire sweep测量.html" class="tool-card">
+                <div class="tool-icon">📐</div>
+                <div class="tool-title">Wire Sweep测量</div>
+                <div class="tool-desc">冲弯率扫描测量工具</div>
+            </a>
+
+            <a href="ball map/BGAballmap.html" class="tool-card">
+                <div class="tool-icon">🎯</div>
+                <div class="tool-title">BGA Ball Map</div>
+                <div class="tool-desc">BGA球阵图比对工具</div>
+            </a>
+
+            <a href="mark/index.html" class="tool-card">
+                <div class="tool-icon">✏️</div>
+                <div class="tool-title">Mark工具</div>
+                <div class="tool-desc">印字示意图生成工具</div>
+            </a>
+        </div>
+    </div>
+</body>
+</html>
