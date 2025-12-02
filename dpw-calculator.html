@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DPW计算器 - 晶圆可切割晶粒计算器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        .input-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 10px;
+        }
+
+        .input-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 22px;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group label {
+            color: #555;
+            font-weight: 500;
+            min-width: 140px;
+            font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select {
+            flex: 1;
+            padding: 8px 12px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .form-group input:disabled {
+            background-color: #f0f0f0;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 15px;
+            padding-left: 150px;
+        }
+
+        .checkbox-group input[type="checkbox"] {
+            width: 18px;
+            height: 18px;
+            cursor: pointer;
+        }
+
+        .checkbox-group label {
+            font-size: 13px;
+            color: #666;
+            cursor: pointer;
+        }
+
+        .canvas-section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .canvas-section h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 22px;
+        }
+
+        #yieldcanvas {
+            max-width: 100%;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .results {
+            margin-bottom: 20px;
+            padding: 20px;
+            background: #f0f7ff;
+            border-radius: 10px;
+            width: 100%;
+        }
+
+        .results h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            text-align: center;
+        }
+
+        .results-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .results-column {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 15px;
+            background: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+
+        .result-item span:first-child {
+            color: #555;
+            font-size: 14px;
+        }
+
+        .result-item span:last-child {
+            font-weight: bold;
+            color: #667eea;
+            font-size: 15px;
+        }
+
+        .reset-btn {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .reset-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        @media (max-width: 1024px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body onload="dieyielddata(document.getElementById('DieForm'));">
+    <div class="container">
+        <div class="header">
+            <h1>DPW计算器</h1>
+            <p>晶圆可切割晶粒(Die Per Wafer)计算器</p>
+        </div>
+
+        <div class="content">
+            <div class="input-section">
+                <h2>参数设置</h2>
+                <form method="post" name="DieForm" id="DieForm">
+                    <div class="form-group">
+                        <label>晶粒长度 (mm)</label>
+                        <input name="xh" id="xh" type="number" step="0.1" min="0.1" value="3"
+                            oninput="handleDieSizeChange(this.form);">
+                    </div>
+
+                    <div class="form-group">
+                        <label>晶粒宽度 (mm)</label>
+                        <input name="yv" id="yv" type="number" step="0.1" min="0.1" value="3"
+                            onchange="dieyielddata(this.form);">
+                    </div>
+
+                    <div class="checkbox-group">
+                        <input name="DieSizeCHKBX" id="DieSizeCHKBX" type="checkbox"
+                            onchange="handleLockChange(this.form);">
+                        <label for="DieSizeCHKBX">🔗 锁定晶粒尺寸比例</label>
+                    </div>
+
+                    <div class="form-group">
+                        <label>水平划道宽度 (μm)</label>
+                        <input name="sh" id="sh" type="number" step="1" min="1" value="60"
+                            oninput="handleScribeChange(this.form);">
+                    </div>
+
+                    <div class="form-group">
+                        <label>垂直划道宽度 (μm)</label>
+                        <input name="sv" id="sv" type="number" step="1" min="1" value="60"
+                            onchange="dieyielddata(this.form);">
+                    </div>
+
+                    <div class="checkbox-group">
+                        <input name="scrblaneCHKBX" id="scrblaneCHKBX" type="checkbox"
+                            onchange="handleLockChange(this.form);">
+                        <label for="scrblaneCHKBX">🔗 锁定划道宽度比例</label>
+                    </div>
+
+                    <div class="form-group">
+                        <label>晶圆直径</label>
+                        <select name="d" onchange="dieyielddata(this.form);">
+                            <option value="25">25.4 mm (1")</option>
+                            <option value="50">50.8 mm (2")</option>
+                            <option value="76">76.2 mm (3")</option>
+                            <option value="100">100 mm (4")</option>
+                            <option value="125">125 mm (5")</option>
+                            <option value="150">150 mm (6")</option>
+                            <option value="200">200 mm (8")</option>
+                            <option value="300" selected>300 mm (12")</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label>边沿去除宽度 (mm)</label>
+                        <input name="e" type="number" step="0.1" min="0" value="5.0"
+                            onchange="dieyielddata(this.form);">
+                    </div>
+
+                    <div class="form-group">
+                        <label>缺陷密度 (#/cm²)</label>
+                        <input name="dd" type="number" step="0.05" min="0" value="0"
+                            onchange="dieyielddata(this.form);">
+                    </div>
+
+                    <div class="form-group">
+                        <label>水平偏移 (mm)</label>
+                        <input name="hshift" type="number" step="0.05" value="0" onchange="dieyielddata(this.form);">
+                    </div>
+
+                    <div class="form-group">
+                        <label>垂直偏移 (mm)</label>
+                        <input name="vshift" type="number" step="0.05" value="0" onchange="dieyielddata(this.form);">
+                    </div>
+
+                    <div class="checkbox-group">
+                        <input name="wcentering" id="wcentering" type="checkbox" checked
+                            onchange="dieyielddata(this.form);">
+                        <label for="wcentering">晶圆居中</label>
+                    </div>
+
+                    <input name="maxdpw" type="hidden" readonly>
+                    <input name="dpw" type="hidden" readonly>
+                    <input name="yield" type="hidden" readonly>
+
+                    <button type="reset" class="reset-btn"
+                        onclick="setTimeout(() => dieyielddata(document.getElementById('DieForm')), 100);">
+                        重置参数
+                    </button>
+                </form>
+            </div>
+
+            <div class="canvas-section">
+                <h2>晶圆布局图</h2>
+
+                <div class="results">
+                    <h3>计算结果</h3>
+                    <div class="results-grid">
+                        <div class="results-column">
+                            <div class="result-item">
+                                <span>不完整晶粒数:</span>
+                                <span id="result-partial" style="color: #f39c12;">-</span>
+                            </div>
+                            <div class="result-item">
+                                <span>边沿晶粒数:</span>
+                                <span id="result-edge" style="color: #e74c3c;">-</span>
+                            </div>
+                            <div class="result-item">
+                                <span>缺陷晶粒数:</span>
+                                <span id="result-defect" style="color: #95a5a6;">-</span>
+                            </div>
+                        </div>
+                        <div class="results-column">
+                            <div class="result-item">
+                                <span>完整晶粒数:</span>
+                                <span id="result-dpw">-</span>
+                            </div>
+                            <div class="result-item">
+                                <span>良品晶粒数:</span>
+                                <span id="result-good" style="color: #27ae60;">-</span>
+                            </div>
+                            <div class="result-item">
+                                <span>良品率:</span>
+                                <span id="result-yield">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <canvas id="yieldcanvas" width="500" height="500"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 处理锁定状态变化
+        function handleLockChange(form) {
+            const dieSizeLocked = form.elements['DieSizeCHKBX'].checked;
+            const scribeLocked = form.elements['scrblaneCHKBX'].checked;
+
+            // 处理晶粒尺寸锁定
+            const yvInput = form.elements['yv'];
+            if (dieSizeLocked) {
+                yvInput.disabled = true;
+                yvInput.value = form.elements['xh'].value;
+            } else {
+                yvInput.disabled = false;
+            }
+
+            // 处理划道宽度锁定
+            const svInput = form.elements['sv'];
+            if (scribeLocked) {
+                svInput.disabled = true;
+                svInput.value = form.elements['sh'].value;
+            } else {
+                svInput.disabled = false;
+            }
+
+            dieyielddata(form);
+        }
+
+        // 处理晶粒长度变化
+        function handleDieSizeChange(form) {
+            const dieSizeLocked = form.elements['DieSizeCHKBX'].checked;
+            if (dieSizeLocked) {
+                form.elements['yv'].value = form.elements['xh'].value;
+            }
+            dieyielddata(form);
+        }
+
+        // 处理水平划道宽度变化
+        function handleScribeChange(form) {
+            const scribeLocked = form.elements['scrblaneCHKBX'].checked;
+            if (scribeLocked) {
+                form.elements['sv'].value = form.elements['sh'].value;
+            }
+            dieyielddata(form);
+        }
+
+        // 数据结构定义
+        function STRDieCalParams() {
+            this.CHKscblnt = 0;
+            this.CHKdiesize = 0;
+            this.dieSize = { h: 0, v: 0 };
+            this.dieSpace = { h: 0, v: 0 };
+            this.wfrDiam = 0;
+            this.edgeLoss = 0;
+            this.defectDens = 0;
+            this.wfrCentering = 0;
+            this.vshift = 0;
+            this.hshift = 0;
+        }
+
+        function STRDieCalResults() {
+            this.as = 0;
+            this.da = 0;
+            this.wa = 0;
+            this.dpw = 0;              // 完整晶粒数
+            this.maxdpw = 0;           // 最大晶粒数
+            this.yield = 0;            // 良率
+            this.partialDies = 0;      // 不完整晶粒数
+            this.edgeDies = 0;         // 边沿晶粒数
+            this.goodDies = 0;         // 良品晶粒数
+            this.defectDies = 0;       // 缺陷晶粒数
+        }
+
+        // 加载参数
+        function LoadParam(form, DCParam) {
+            DCParam.CHKscblnt = form.elements['scrblaneCHKBX'].checked ? 1 : 0;
+            DCParam.CHKdiesize = form.elements['DieSizeCHKBX'].checked ? 1 : 0;
+
+            DCParam.dieSize.h = parseFloat(form.elements['xh'].value);
+            DCParam.dieSize.v = parseFloat(form.elements['yv'].value);
+            // 划道宽度从微米转换为毫米
+            DCParam.dieSpace.h = parseFloat(form.elements['sh'].value) / 1000;
+            DCParam.dieSpace.v = parseFloat(form.elements['sv'].value) / 1000;
+            DCParam.wfrDiam = parseFloat(form.elements['d'].value);
+            DCParam.edgeLoss = parseFloat(form.elements['e'].value);
+            DCParam.defectDens = parseFloat(form.elements['dd'].value);
+            DCParam.wfrCentering = form.elements['wcentering'].checked ? 1 : 0;
+            DCParam.hshift = parseFloat(form.elements['hshift'].value);
+            DCParam.vshift = parseFloat(form.elements['vshift'].value);
+        }
+
+        // 计算晶圆参数
+        function CalcWfrParam(DCParam, DCRes) {
+            DCRes.as = Math.sqrt(DCParam.dieSize.v * DCParam.dieSize.h) +
+                DCParam.dieSpace.v + DCParam.dieSpace.h;
+            DCRes.da = DCParam.dieSize.v * DCParam.dieSize.h;
+            DCRes.wa = Math.PI * Math.pow(DCParam.wfrDiam / 2, 2);
+
+            // 计算各类晶粒数
+            let wfrRadius = DCParam.wfrDiam / 2;
+            let activeRadius = wfrRadius - DCParam.edgeLoss;
+            let dieWidth = DCParam.dieSize.h + DCParam.dieSpace.h;
+            let dieHeight = DCParam.dieSize.v + DCParam.dieSpace.v;
+
+            let completeDies = 0;      // 完整晶粒
+            let partialDies = 0;       // 不完整晶粒
+            let edgeDies = 0;          // 边沿晶粒
+            let maxCount = 0;
+
+            // 计算网格范围（扩大范围以包含部分晶粒）
+            let cols = Math.ceil(DCParam.wfrDiam / dieWidth) + 2;
+            let rows = Math.ceil(DCParam.wfrDiam / dieHeight) + 2;
+
+            let centerX = DCParam.wfrDiam / 2;
+            let centerY = DCParam.wfrDiam / 2;
+
+            let startX, startY;
+            if (DCParam.wfrCentering === 0) {
+                // 晶粒居中
+                let innerCols = Math.floor((DCParam.wfrDiam - 2 * DCParam.edgeLoss) / dieWidth);
+                let innerRows = Math.floor((DCParam.wfrDiam - 2 * DCParam.edgeLoss) / dieHeight);
+                startX = centerX - (innerCols * dieWidth) / 2 + DCParam.hshift;
+                startY = centerY - (innerRows * dieHeight) / 2 + DCParam.vshift;
+                maxCount = innerCols * innerRows;
+            } else {
+                // 晶圆居中
+                startX = DCParam.edgeLoss + DCParam.hshift;
+                startY = DCParam.edgeLoss + DCParam.vshift;
+                let innerCols = Math.floor((DCParam.wfrDiam - 2 * DCParam.edgeLoss) / dieWidth);
+                let innerRows = Math.floor((DCParam.wfrDiam - 2 * DCParam.edgeLoss) / dieHeight);
+                maxCount = innerCols * innerRows;
+            }
+
+            // 遍历所有可能的晶粒位置
+            for (let i = -5; i < cols; i++) {
+                for (let j = -5; j < rows; j++) {
+                    let dieX = startX + i * dieWidth;
+                    let dieY = startY + j * dieHeight;
+
+                    // 检查晶粒四个角点
+                    let corners = [
+                        { x: dieX, y: dieY },
+                        { x: dieX + DCParam.dieSize.h, y: dieY },
+                        { x: dieX, y: dieY + DCParam.dieSize.v },
+                        { x: dieX + DCParam.dieSize.h, y: dieY + DCParam.dieSize.v }
+                    ];
+
+                    let cornersInWafer = 0;
+                    let cornersInActive = 0;
+                    let cornersInEdge = 0;
+
+                    for (let corner of corners) {
+                        let distToCenter = Math.sqrt(
+                            Math.pow(corner.x - centerX, 2) +
+                            Math.pow(corner.y - centerY, 2)
+                        );
+
+                        if (distToCenter <= wfrRadius) {
+                            cornersInWafer++;
+                            if (distToCenter <= activeRadius) {
+                                cornersInActive++;
+                            } else {
+                                cornersInEdge++;
+                            }
+                        }
+                    }
+
+                    // 分类晶粒
+                    if (cornersInActive === 4) {
+                        // 四个角都在有效区域内 - 完整晶粒
+                        completeDies++;
+                    } else if (cornersInWafer > 0 && cornersInActive > 0) {
+                        // 部分在有效区域内 - 不完整晶粒
+                        partialDies++;
+                    } else if (cornersInWafer > 0 && cornersInEdge > 0) {
+                        // 在边沿区域 - 边沿晶粒
+                        edgeDies++;
+                    }
+                }
+            }
+
+            DCRes.dpw = completeDies;
+            DCRes.maxdpw = maxCount;
+            DCRes.partialDies = partialDies;
+            DCRes.edgeDies = edgeDies;
+
+            // Murphy良率模型计算缺陷晶粒
+            DCRes.yield = Math.exp(-DCRes.da * DCParam.defectDens / 100) * 100;
+            DCRes.defectDies = Math.round(completeDies * (1 - DCRes.yield / 100));
+            DCRes.goodDies = completeDies - DCRes.defectDies;
+        }
+
+        // 绘制晶圆图
+        function DrawWafer(canvas, DCParam, DCRes) {
+            let ctx = canvas.getContext('2d');
+            let canvasSize = canvas.width;
+            let scale = canvasSize / (DCParam.wfrDiam * 1.1);
+
+            ctx.clearRect(0, 0, canvasSize, canvasSize);
+
+            let centerX = canvasSize / 2;
+            let centerY = canvasSize / 2;
+            let wfrRadius = (DCParam.wfrDiam / 2) * scale;
+            let activeRadius = (DCParam.wfrDiam / 2 - DCParam.edgeLoss) * scale;
+
+            // 绘制晶圆外圈
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, wfrRadius, 0, 2 * Math.PI);
+            ctx.fillStyle = '#e0e0e0';
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // 绘制有效区域边界
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, activeRadius, 0, 2 * Math.PI);
+            ctx.strokeStyle = '#ff6b6b';
+            ctx.lineWidth = 1;
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+
+            // 晶粒尺寸
+            let dieWidth = (DCParam.dieSize.h + DCParam.dieSpace.h) * scale;
+            let dieHeight = (DCParam.dieSize.v + DCParam.dieSpace.v) * scale;
+            let dieRealWidth = DCParam.dieSize.h * scale;
+            let dieRealHeight = DCParam.dieSize.v * scale;
+
+            let cols = Math.ceil(DCParam.wfrDiam / (DCParam.dieSize.h + DCParam.dieSpace.h)) + 2;
+            let rows = Math.ceil(DCParam.wfrDiam / (DCParam.dieSize.v + DCParam.dieSpace.v)) + 2;
+
+            let startX, startY;
+            let wfrCenterX = DCParam.wfrDiam / 2;
+            let wfrCenterY = DCParam.wfrDiam / 2;
+            let wfrRadiusReal = DCParam.wfrDiam / 2;
+            let activeRadiusReal = wfrRadiusReal - DCParam.edgeLoss;
+
+            if (DCParam.wfrCentering === 0) {
+                let innerCols = Math.floor((DCParam.wfrDiam - 2 * DCParam.edgeLoss) / (DCParam.dieSize.h + DCParam.dieSpace.h));
+                let innerRows = Math.floor((DCParam.wfrDiam - 2 * DCParam.edgeLoss) / (DCParam.dieSize.v + DCParam.dieSpace.v));
+                startX = wfrCenterX - (innerCols * (DCParam.dieSize.h + DCParam.dieSpace.h)) / 2 + DCParam.hshift;
+                startY = wfrCenterY - (innerRows * (DCParam.dieSize.v + DCParam.dieSpace.v)) / 2 + DCParam.vshift;
+            } else {
+                startX = DCParam.edgeLoss + DCParam.hshift;
+                startY = DCParam.edgeLoss + DCParam.vshift;
+            }
+
+            // 收集完整晶粒用于随机标记缺陷
+            let completeDiesList = [];
+
+            // 遍历绘制所有晶粒
+            for (let i = -5; i < cols; i++) {
+                for (let j = -5; j < rows; j++) {
+                    let dieX = startX + i * (DCParam.dieSize.h + DCParam.dieSpace.h);
+                    let dieY = startY + j * (DCParam.dieSize.v + DCParam.dieSpace.v);
+
+                    // 检查四个角点
+                    let corners = [
+                        { x: dieX, y: dieY },
+                        { x: dieX + DCParam.dieSize.h, y: dieY },
+                        { x: dieX, y: dieY + DCParam.dieSize.v },
+                        { x: dieX + DCParam.dieSize.h, y: dieY + DCParam.dieSize.v }
+                    ];
+
+                    let cornersInWafer = 0;
+                    let cornersInActive = 0;
+                    let cornersInEdge = 0;
+
+                    for (let corner of corners) {
+                        let distToCenter = Math.sqrt(
+                            Math.pow(corner.x - wfrCenterX, 2) +
+                            Math.pow(corner.y - wfrCenterY, 2)
+                        );
+
+                        if (distToCenter <= wfrRadiusReal) {
+                            cornersInWafer++;
+                            if (distToCenter <= activeRadiusReal) {
+                                cornersInActive++;
+                            } else {
+                                cornersInEdge++;
+                            }
+                        }
+                    }
+
+                    // 转换到画布坐标
+                    let canvasX = (dieX - wfrCenterX) * scale + centerX;
+                    let canvasY = (dieY - wfrCenterY) * scale + centerY;
+
+                    // 根据类型绘制晶粒
+                    if (cornersInActive === 4) {
+                        // 完整晶粒 - 绿色（稍后可能变灰）
+                        completeDiesList.push({ x: canvasX, y: canvasY });
+                        ctx.fillStyle = '#4CAF50';
+                        ctx.fillRect(canvasX, canvasY, dieRealWidth, dieRealHeight);
+                        ctx.strokeStyle = '#fff';
+                        ctx.lineWidth = 0.5;
+                        ctx.strokeRect(canvasX, canvasY, dieRealWidth, dieRealHeight);
+                    } else if (cornersInWafer > 0 && cornersInActive > 0) {
+                        // 不完整晶粒 - 黄色
+                        ctx.fillStyle = '#f39c12';
+                        ctx.fillRect(canvasX, canvasY, dieRealWidth, dieRealHeight);
+                        ctx.strokeStyle = '#fff';
+                        ctx.lineWidth = 0.5;
+                        ctx.strokeRect(canvasX, canvasY, dieRealWidth, dieRealHeight);
+                    } else if (cornersInWafer > 0 && cornersInEdge > 0) {
+                        // 边沿晶粒 - 红色
+                        ctx.fillStyle = '#e74c3c';
+                        ctx.fillRect(canvasX, canvasY, dieRealWidth, dieRealHeight);
+                        ctx.strokeStyle = '#fff';
+                        ctx.lineWidth = 0.5;
+                        ctx.strokeRect(canvasX, canvasY, dieRealWidth, dieRealHeight);
+                    }
+                }
+            }
+
+            // 随机标记缺陷晶粒
+            if (DCRes.defectDies > 0 && completeDiesList.length > 0) {
+                // 使用固定种子的随机数生成器（基于参数）
+                let seed = DCParam.defectDens * 1000;
+                let random = function () {
+                    seed = (seed * 9301 + 49297) % 233280;
+                    return seed / 233280;
+                };
+
+                // 随机选择缺陷晶粒
+                let defectIndices = new Set();
+                while (defectIndices.size < DCRes.defectDies && defectIndices.size < completeDiesList.length) {
+                    let idx = Math.floor(random() * completeDiesList.length);
+                    defectIndices.add(idx);
+                }
+
+                // 绘制缺陷晶粒为灰色
+                defectIndices.forEach(idx => {
+                    let die = completeDiesList[idx];
+                    ctx.fillStyle = '#95a5a6';
+                    ctx.fillRect(die.x, die.y, dieRealWidth, dieRealHeight);
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 0.5;
+                    ctx.strokeRect(die.x, die.y, dieRealWidth, dieRealHeight);
+                });
+            }
+        }
+
+        // 主函数
+        function dieyielddata(form) {
+            let canvas = document.getElementById('yieldcanvas');
+            if (!canvas || !canvas.getContext) return;
+
+            let DCParam = new STRDieCalParams();
+            let DCRes = new STRDieCalResults();
+
+            LoadParam(form, DCParam);
+            CalcWfrParam(DCParam, DCRes);
+            DrawWafer(canvas, DCParam, DCRes);
+
+            // 更新结果显示
+            form.maxdpw.value = DCRes.maxdpw;
+            form.dpw.value = DCRes.dpw;
+            form.yield.value = DCRes.yield.toFixed(2);
+
+            document.getElementById('result-dpw').textContent = DCRes.dpw;
+            document.getElementById('result-partial').textContent = DCRes.partialDies;
+            document.getElementById('result-edge').textContent = DCRes.edgeDies;
+            document.getElementById('result-defect').textContent = DCRes.defectDies;
+            document.getElementById('result-good').textContent = DCRes.goodDies;
+            document.getElementById('result-yield').textContent = DCRes.yield.toFixed(2) + '%';
+        }
+    </script>
+</body>
+
+</html>
