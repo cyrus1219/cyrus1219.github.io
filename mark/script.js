@@ -119,7 +119,7 @@ class ChipMarkGenerator {
             
             img.onload = () => {
                 console.log('GigaDevice Logo 加载成功');
-                this.addLogo(img);
+                this.addLogo(img, true); // 传入 true 表示是 GigaDevice Logo
             };
             
             img.onerror = (e) => {
@@ -442,7 +442,7 @@ class ChipMarkGenerator {
         reader.readAsDataURL(file);
     }
     
-    addLogo(image) {
+    addLogo(image, isGigaDevice = false) {
         const id = this.logoIdCounter++;
         
         // 创建临时画布来处理图片颜色
@@ -480,14 +480,20 @@ class ChipMarkGenerator {
         const coloredImage = new Image();
         coloredImage.src = tempCanvas.toDataURL();
         
+        // GigaDevice Logo 使用特定尺寸
+        const defaultWidth = isGigaDevice ? 4 : 2;
+        const defaultHeight = isGigaDevice ? 1 : 2;
+        
         const logo = {
             id,
             image: coloredImage,
             originalImage: image, // 保存原始图片以便重新着色
             x: this.canvas.width / 2,
             y: this.canvas.height / 2,
-            width: 2,  // mm
-            height: 2, // mm
+            width: defaultWidth,  // mm
+            height: defaultHeight, // mm
+            aspectRatio: image.width / image.height, // 保存原始宽高比
+            lockAspectRatio: isGigaDevice, // GigaDevice Logo 默认锁定比例
             dragging: false
         };
         
@@ -550,15 +556,22 @@ class ChipMarkGenerator {
                 <span class="text-line-title">Logo ${logo.id + 1}</span>
                 <button class="delete-line" onclick="generator.deleteLogo(${logo.id})">删除</button>
             </div>
+            <div class="control-group">
+                <label style="display: flex; align-items: center; gap: 5px;">
+                    <input type="checkbox" ${logo.lockAspectRatio ? 'checked' : ''} 
+                        onchange="generator.updateLogoLockAspectRatio(${logo.id}, this.checked)">
+                    锁定宽高比
+                </label>
+            </div>
             <div class="control-row">
                 <div class="control-group">
                     <label>宽度 (mm)：</label>
-                    <input type="number" value="${logo.width}" min="0.1" max="10" step="0.1"
+                    <input type="number" id="logo-width-${logo.id}" value="${logo.width}" min="0.1" max="10" step="0.1"
                         onchange="generator.updateLogoWidth(${logo.id}, this.value)">
                 </div>
                 <div class="control-group">
                     <label>高度 (mm)：</label>
-                    <input type="number" value="${logo.height}" min="0.1" max="10" step="0.1"
+                    <input type="number" id="logo-height-${logo.id}" value="${logo.height}" min="0.1" max="10" step="0.1"
                         onchange="generator.updateLogoHeight(${logo.id}, this.value)">
                 </div>
             </div>
@@ -570,7 +583,21 @@ class ChipMarkGenerator {
     updateLogoWidth(id, width) {
         const logo = this.logos.find(l => l.id === id);
         if (logo) {
-            logo.width = parseFloat(width);
+            const newWidth = parseFloat(width);
+            logo.width = newWidth;
+            
+            // 如果锁定宽高比，同时调整高度
+            if (logo.lockAspectRatio && logo.aspectRatio) {
+                const newHeight = newWidth / logo.aspectRatio;
+                logo.height = newHeight;
+                
+                // 更新高度输入框的值
+                const heightInput = document.getElementById(`logo-height-${id}`);
+                if (heightInput) {
+                    heightInput.value = newHeight.toFixed(1);
+                }
+            }
+            
             this.render();
         }
     }
@@ -578,8 +605,33 @@ class ChipMarkGenerator {
     updateLogoHeight(id, height) {
         const logo = this.logos.find(l => l.id === id);
         if (logo) {
-            logo.height = parseFloat(height);
+            const newHeight = parseFloat(height);
+            logo.height = newHeight;
+            
+            // 如果锁定宽高比，同时调整宽度
+            if (logo.lockAspectRatio && logo.aspectRatio) {
+                const newWidth = newHeight * logo.aspectRatio;
+                logo.width = newWidth;
+                
+                // 更新宽度输入框的值
+                const widthInput = document.getElementById(`logo-width-${id}`);
+                if (widthInput) {
+                    widthInput.value = newWidth.toFixed(1);
+                }
+            }
+            
             this.render();
+        }
+    }
+    
+    updateLogoLockAspectRatio(id, locked) {
+        const logo = this.logos.find(l => l.id === id);
+        if (logo) {
+            logo.lockAspectRatio = locked;
+            // 如果刚锁定，重新计算并保存当前的宽高比
+            if (locked) {
+                logo.aspectRatio = logo.width / logo.height;
+            }
         }
     }
     
