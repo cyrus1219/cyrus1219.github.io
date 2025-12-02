@@ -1,6 +1,7 @@
 @font-face {
     font-family: 'OCR-A';
-    src: local('OCR-A'), local('OCRAEXT'), local('OCR A Extended'), local('OCR-A-Extended');
+    src: url('OcrA-Regular.ttf') format('truetype'),
+         local('OCR-A'), local('OCRAEXT'), local('OCR A Extended'), local('OCR-A-Extended');
 }
 
 * {

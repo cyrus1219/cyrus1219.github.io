@@ -12,6 +12,19 @@
             <h2>芯片印字标记生成器</h2>
             
             <div class="section">
+                <h3>封装类型</h3>
+                <div class="control-group">
+                    <label>选择封装：</label>
+                    <select id="packageType" onchange="generator && generator.applyPackageConfig(this.value)">
+                        <option value="">选择封装类型...</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <small id="packageInfo" style="color: #666;"></small>
+                </div>
+            </div>
+
+            <div class="section">
                 <h3>芯片设置</h3>
                 <div class="control-group">
                     <label>芯片宽度 (mm)：</label>
@@ -43,8 +56,11 @@
             <div class="section">
                 <h3>Logo 图片</h3>
                 <div class="control-group">
-                    <label>上传 Logo (PNG)：</label>
-                    <input type="file" id="logoUpload" accept="image/png" style="font-size: 13px;">
+                    <button onclick="generator && generator.addGigaDeviceLogo()" class="btn" style="margin-bottom: 10px;">+ GigaDevice Logo</button>
+                </div>
+                <div class="control-group">
+                    <label>或上传自定义 Logo：</label>
+                    <input type="file" id="logoUpload" accept="image/*" style="font-size: 13px;">
                 </div>
                 <div id="logos"></div>
             </div>
@@ -76,6 +92,7 @@
         </div>
     </div>
 
+    <script src="package-configs.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

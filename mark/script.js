@@ -41,14 +41,97 @@ class ChipMarkGenerator {
             'OCR-A': 0.65  // 实际高度约为设置高度的 65% (100% - 35%)
         };
         
+        // 字宽和字间距补偿系数
+        this.charWidthMultiplier = 1.3;  // 字宽 = 设定值 * 1.3
+        this.letterSpacingOffset = 0.3;  // 字间距 = 设定值 - 字宽 * 0.3
+        
+        // 封装类型配置
+        this.packageConfigs = [];
+        this.defaultCharWidth = 0.4;
+        this.defaultCharHeight = 0.6;
+        this.defaultLetterSpacing = 0.15;
+        
         this.init();
     }
     
     init() {
+        this.loadPackageConfigs();
         this.loadFonts();
         this.updateCanvasSize();
         this.setupEventListeners();
         this.render();
+    }
+    
+    // 加载封装类型配置
+    loadPackageConfigs() {
+        if (typeof parsePackageConfigs === 'function') {
+            this.packageConfigs = parsePackageConfigs();
+            this.populatePackageSelect();
+        }
+    }
+    
+    // 填充封装类型下拉菜单
+    populatePackageSelect() {
+        const select = document.getElementById('packageType');
+        if (!select || !this.packageConfigs) return;
+        
+        this.packageConfigs.forEach((config, index) => {
+            const option = document.createElement('option');
+            option.value = index;
+            option.textContent = config.name;
+            select.appendChild(option);
+        });
+    }
+    
+    // 应用封装配置
+    applyPackageConfig(index) {
+        if (index === '' || index < 0 || index >= this.packageConfigs.length) {
+            document.getElementById('packageInfo').textContent = '';
+            return;
+        }
+        
+        const config = this.packageConfigs[index];
+        
+        // 设置芯片尺寸
+        this.chipWidth = config.chipWidth;
+        this.chipHeight = config.chipHeight;
+        document.getElementById('chipWidth').value = config.chipWidth;
+        document.getElementById('chipHeight').value = config.chipHeight;
+        
+        // 更新默认字体参数
+        this.defaultCharWidth = config.charWidth;
+        this.defaultCharHeight = config.charHeight;
+        this.defaultLetterSpacing = config.letterSpacing;
+        
+        // 显示提示信息
+        document.getElementById('packageInfo').textContent = 
+            `字宽: ${config.charWidth}mm, 字高: ${config.charHeight}mm, 字间距: ${config.letterSpacing}mm`;
+        
+        this.updateCanvasSize();
+        this.render();
+    }
+    
+    // 添加 GigaDevice Logo
+    async addGigaDeviceLogo() {
+        try {
+            const img = new Image();
+            img.crossOrigin = 'anonymous'; // 允许跨域（如果需要）
+            
+            img.onload = () => {
+                console.log('GigaDevice Logo 加载成功');
+                this.addLogo(img);
+            };
+            
+            img.onerror = (e) => {
+                console.error('GigaDevice Logo 加载失败:', e);
+                alert('GigaDevice Logo 加载失败，请确保 Gigadevice.png 文件存在于当前目录');
+            };
+            
+            img.src = 'Gigadevice.png';
+        } catch (error) {
+            console.error('加载 GigaDevice Logo 异常:', error);
+            alert('加载 GigaDevice Logo 失败: ' + error.message);
+        }
     }
     
     // 加载字体
@@ -199,10 +282,10 @@ class ChipMarkGenerator {
             text,
             x,
             y,
-            charWidth: 0.4,  // mm
-            charHeight: 0.6, // mm
+            charWidth: this.defaultCharWidth,  // mm - 使用默认值
+            charHeight: this.defaultCharHeight, // mm - 使用默认值
             fontFamily: 'Arial',
-            letterSpacing: 0.15, // mm
+            letterSpacing: this.defaultLetterSpacing, // mm - 使用默认值
             bold: false,
             underline: false,
             dragging: false
@@ -874,11 +957,12 @@ class ChipMarkGenerator {
     }
     
     measureText(line) {
-        const charWidthPx = this.mmToPixels(line.charWidth);
-        const letterSpacingPx = this.mmToPixels(line.letterSpacing);
+        // 应用补偿后的实际宽度和间距
+        const actualCharWidthPx = this.mmToPixels(line.charWidth * this.charWidthMultiplier);
+        const actualLetterSpacingPx = this.mmToPixels(line.letterSpacing - line.charWidth * this.letterSpacingOffset);
         const text = line.text;
         const width = text.length > 0 ? 
-            text.length * charWidthPx + (text.length - 1) * letterSpacingPx : 0;
+            text.length * actualCharWidthPx + (text.length - 1) * actualLetterSpacingPx : 0;
         const height = this.mmToPixels(line.charHeight);
         return { width, height };
     }
@@ -930,8 +1014,12 @@ class ChipMarkGenerator {
         
         for (const line of this.textLines) {
             const charHeightPx = this.mmToPixels(line.charHeight);
-            const charWidthPx = this.mmToPixels(line.charWidth);
-            const letterSpacingPx = this.mmToPixels(line.letterSpacing);
+            
+            // 应用字宽补偿：实际渲染宽度 = 设定值 * 1.3
+            const actualCharWidthPx = this.mmToPixels(line.charWidth * this.charWidthMultiplier);
+            
+            // 应用字间距补偿：实际间距 = 设定值 - 字宽 * 0.3
+            const actualLetterSpacingPx = this.mmToPixels(line.letterSpacing - line.charWidth * this.letterSpacingOffset);
             
             // 应用字体高度补偿，使实际渲染高度等于用户设置的高度
             const compensation = this.fontHeightCompensation[line.fontFamily] || 0.7;
@@ -949,9 +1037,9 @@ class ChipMarkGenerator {
                 // 在 save 之后设置字体，确保字体设置不会被 restore 清除
                 this.ctx.font = fontString;
                 
-                // 计算实际字符宽度和目标宽度的比例
+                // 计算实际字符宽度和目标宽度的比例（使用补偿后的宽度）
                 const actualCharWidth = this.ctx.measureText(char).width;
-                const scaleX = charWidthPx / actualCharWidth;
+                const scaleX = actualCharWidthPx / actualCharWidth;
                 
                 // 应用水平缩放
                 this.ctx.translate(currentX, line.y);
@@ -960,7 +1048,7 @@ class ChipMarkGenerator {
                 
                 this.ctx.restore();
                 
-                currentX += charWidthPx + letterSpacingPx;
+                currentX += actualCharWidthPx + actualLetterSpacingPx;
             }
             
             // 绘制下划线
