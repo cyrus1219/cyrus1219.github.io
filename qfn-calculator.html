@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QFN封装 Die Size 计算器</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Microsoft YaHei', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 32px;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 16px;
+            opacity: 0.9;
+        }
+
+        .content {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 30px;
+            padding: 30px;
+        }
+
+        .input-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+        }
+
+        .input-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #2c3e50;
+            font-size: 14px;
+        }
+
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s;
+        }
+
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+
+        .input-group .unit {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .calculate-btn {
+            width: 100%;
+            padding: 15px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .calculate-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        .result-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        .result-section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 20px;
+        }
+
+        .result-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px;
+            background: white;
+            margin-bottom: 10px;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+
+        .result-item .label {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+        .result-item .value {
+            color: #667eea;
+            font-weight: 700;
+            font-size: 18px;
+        }
+
+        .preview-section {
+            background: #2c3e50;
+            padding: 25px;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .preview-section h3 {
+            color: white;
+            margin-bottom: 20px;
+            font-size: 20px;
+        }
+
+        #canvas {
+            background: #34495e;
+            border-radius: 10px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+
+        @media (max-width: 1024px) {
+            .content {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>QFN封装 Die Size 计算器</h1>
+            <p>通过封装参数评估最大可支持的芯片尺寸</p>
+        </div>
+
+        <div class="content">
+            <div class="input-section">
+                <div class="input-group">
+                    <label>封装宽度 (Package Width)</label>
+                    <input type="number" id="pkgWidth" value="3000" step="100" oninput="calculate()">
+                    <div class="unit">单位: μm (微米)</div>
+                </div>
+
+                <div class="input-group">
+                    <label>封装长度 (Package Length)</label>
+                    <input type="number" id="pkgLength" value="3000" step="100" oninput="calculate()">
+                    <div class="unit">单位: μm (微米)</div>
+                </div>
+
+                <div class="input-group">
+                    <label>引脚宽度 (Pin Width)</label>
+                    <input type="number" id="pinWidth" value="200" step="10" oninput="calculate()">
+                    <div class="unit">单位: μm (微米)</div>
+                </div>
+
+                <div class="input-group">
+                    <label>引脚长度 (Pin Length)</label>
+                    <input type="number" id="pinLength" value="250" step="10" oninput="calculate()">
+                    <div class="unit">单位: μm (微米)</div>
+                </div>
+
+                <div class="input-group">
+                    <label>引脚间距 (Pin Pitch)</label>
+                    <input type="number" id="pinPitch" value="500" step="10" oninput="calculate()">
+                    <div class="unit">单位: μm (中心到中心距离)</div>
+                </div>
+
+                <div class="input-group">
+                    <label>X方向引脚数量 (上下边)</label>
+                    <input type="number" id="pinsX" value="5" min="0" step="1" oninput="calculate()">
+                    <div class="unit">可设为0 (无引脚)</div>
+                </div>
+
+                <div class="input-group">
+                    <label>Y方向引脚数量 (左右边)</label>
+                    <input type="number" id="pinsY" value="5" min="0" step="1" oninput="calculate()">
+                    <div class="unit">可设为0 (无引脚)</div>
+                </div>
+
+                <div class="input-group">
+                    <label>框架厚度 (Frame Thickness)</label>
+                    <select id="frameThickness" onchange="calculate()">
+                        <option value="152">152 μm</option>
+                        <option value="203" selected>203 μm</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>上芯材料 (Die Attach Material)</label>
+                    <select id="attachMaterial" onchange="calculate()">
+                        <option value="DAF">DAF</option>
+                        <option value="Epoxy">Epoxy</option>
+                    </select>
+                </div>
+
+                <div class="input-group">
+                    <label>是否有地线 (Ground Wire)</label>
+                    <select id="hasGroundWire" onchange="calculate()">
+                        <option value="no">无地线</option>
+                        <option value="yes">有地线</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <div class="preview-section">
+                    <h3>� 封算装预览图</h3>
+                    <canvas id="canvas" width="700" height="700"></canvas>
+                </div>
+
+                <div class="result-section">
+                    <h3>📊 计算结果</h3>
+                    <div class="result-item">
+                        <span class="label">Paddle 宽度:</span>
+                        <span class="value" id="paddleWidth">-</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="label">Paddle 长度:</span>
+                        <span class="value" id="paddleLength">-</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="label">边缘卡控距离:</span>
+                        <span class="value" id="edgeControl">-</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="label">最大 Die 宽度:</span>
+                        <span class="value" id="maxDieWidth">-</span>
+                    </div>
+                    <div class="result-item">
+                        <span class="label">最大 Die 长度:</span>
+                        <span class="value" id="maxDieLength">-</span>
+                    </div>
+                    <div class="result-item" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-left: none;">
+                        <span class="label" style="color: white;">最大 Die 尺寸:</span>
+                        <span class="value" style="color: #fff; font-size: 20px;" id="maxDieSize">-</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function calculate() {
+            // 获取输入值
+            const pkgWidth = parseFloat(document.getElementById('pkgWidth').value);
+            const pkgLength = parseFloat(document.getElementById('pkgLength').value);
+            const pinWidth = parseFloat(document.getElementById('pinWidth').value);
+            const pinLength = parseFloat(document.getElementById('pinLength').value);
+            const pinPitch = parseFloat(document.getElementById('pinPitch').value);
+            const frameThickness = parseFloat(document.getElementById('frameThickness').value);
+            const pinsX = parseInt(document.getElementById('pinsX').value);
+            const pinsY = parseInt(document.getElementById('pinsY').value);
+            const attachMaterial = document.getElementById('attachMaterial').value;
+            const hasGroundWire = document.getElementById('hasGroundWire').value;
+
+            // 计算paddle尺寸
+            let offset = frameThickness === 152 ? 120 : 150;
+            let paddleWidth, paddleLength;
+
+            // X方向 (宽度方向，左右边引脚)
+            if (pinsY === 0) {
+                paddleWidth = pkgWidth - 2 * 200;
+            } else {
+                paddleWidth = pkgWidth - 2 * pinLength - 2 * offset;
+            }
+
+            // Y方向 (长度方向，上下边引脚)
+            if (pinsX === 0) {
+                paddleLength = pkgLength - 2 * 200;
+            } else {
+                paddleLength = pkgLength - 2 * pinLength - 2 * offset;
+            }
+
+            // 计算边缘卡控距离
+            let edgeControl;
+            if (attachMaterial === 'DAF' && hasGroundWire === 'no') {
+                edgeControl = 50;
+            } else if (attachMaterial === 'DAF' && hasGroundWire === 'yes') {
+                edgeControl = 150;
+            } else if (attachMaterial === 'Epoxy' && hasGroundWire === 'no') {
+                edgeControl = 150;
+            } else if (attachMaterial === 'Epoxy' && hasGroundWire === 'yes') {
+                edgeControl = 330;
+            }
+
+            // 计算最大die尺寸
+            const maxDieWidth = paddleWidth - 2 * edgeControl;
+            const maxDieLength = paddleLength - 2 * edgeControl;
+
+            // 显示结果
+            document.getElementById('paddleWidth').textContent = paddleWidth.toFixed(0) + ' μm';
+            document.getElementById('paddleLength').textContent = paddleLength.toFixed(0) + ' μm';
+            document.getElementById('edgeControl').textContent = edgeControl + ' μm';
+            document.getElementById('maxDieWidth').textContent = maxDieWidth.toFixed(0) + ' μm';
+            document.getElementById('maxDieLength').textContent = maxDieLength.toFixed(0) + ' μm';
+            document.getElementById('maxDieSize').textContent = 
+                `${maxDieWidth.toFixed(0)} × ${maxDieLength.toFixed(0)} μm`;
+
+            // 绘制预览图
+            drawPreview(pkgWidth, pkgLength, pinWidth, pinLength, pinPitch, paddleWidth, paddleLength, pinsX, pinsY, maxDieWidth, maxDieLength);
+        }
+
+        function drawPreview(pkgWidth, pkgLength, pinWidth, pinLength, pinPitch, paddleWidth, paddleLength, pinsX, pinsY, maxDieWidth, maxDieLength) {
+            const canvas = document.getElementById('canvas');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // 清空画布
+            ctx.fillStyle = '#34495e';
+            ctx.fillRect(0, 0, width, height);
+
+            // 计算缩放比例
+            const scale = Math.min((width - 100) / pkgWidth, (height - 100) / pkgLength);
+            const offsetX = (width - pkgWidth * scale) / 2;
+            const offsetY = (height - pkgLength * scale) / 2;
+
+            // 绘制封装外框
+            ctx.strokeStyle = '#3498db';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(offsetX, offsetY, pkgWidth * scale, pkgLength * scale);
+
+            // 绘制引脚
+            ctx.fillStyle = '#95a5a6';
+            ctx.strokeStyle = '#7f8c8d';
+            ctx.lineWidth = 1;
+
+            // 上边和下边引脚 (X方向)
+            if (pinsX > 0) {
+                for (let i = 0; i < pinsX; i++) {
+                    const x = offsetX + (pkgWidth * scale - (pinsX - 1) * pinPitch * scale) / 2 + i * pinPitch * scale;
+                    
+                    // 上边引脚
+                    const yTop = offsetY;
+                    ctx.fillRect(x - pinWidth * scale / 2, yTop, pinWidth * scale, pinLength * scale);
+                    ctx.strokeRect(x - pinWidth * scale / 2, yTop, pinWidth * scale, pinLength * scale);
+                    
+                    // 下边引脚
+                    const yBottom = offsetY + pkgLength * scale - pinLength * scale;
+                    ctx.fillRect(x - pinWidth * scale / 2, yBottom, pinWidth * scale, pinLength * scale);
+                    ctx.strokeRect(x - pinWidth * scale / 2, yBottom, pinWidth * scale, pinLength * scale);
+                }
+            }
+
+            // 左边和右边引脚 (Y方向)
+            if (pinsY > 0) {
+                for (let i = 0; i < pinsY; i++) {
+                    const y = offsetY + (pkgLength * scale - (pinsY - 1) * pinPitch * scale) / 2 + i * pinPitch * scale;
+                    
+                    // 左边引脚
+                    const xLeft = offsetX;
+                    ctx.fillRect(xLeft, y - pinWidth * scale / 2, pinLength * scale, pinWidth * scale);
+                    ctx.strokeRect(xLeft, y - pinWidth * scale / 2, pinLength * scale, pinWidth * scale);
+                    
+                    // 右边引脚
+                    const xRight = offsetX + pkgWidth * scale - pinLength * scale;
+                    ctx.fillRect(xRight, y - pinWidth * scale / 2, pinLength * scale, pinWidth * scale);
+                    ctx.strokeRect(xRight, y - pinWidth * scale / 2, pinLength * scale, pinWidth * scale);
+                }
+            }
+
+            // 绘制paddle (中心方块)
+            const paddleX = offsetX + (pkgWidth * scale - paddleWidth * scale) / 2;
+            const paddleY = offsetY + (pkgLength * scale - paddleLength * scale) / 2;
+            
+            ctx.fillStyle = 'rgba(255, 193, 7, 0.5)';
+            ctx.fillRect(paddleX, paddleY, paddleWidth * scale, paddleLength * scale);
+            ctx.strokeStyle = '#f39c12';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(paddleX, paddleY, paddleWidth * scale, paddleLength * scale);
+
+            // 绘制die区域 (在paddle内部)
+            const dieX = offsetX + (pkgWidth * scale - maxDieWidth * scale) / 2;
+            const dieY = offsetY + (pkgLength * scale - maxDieLength * scale) / 2;
+            
+            ctx.fillStyle = 'rgba(46, 204, 113, 0.6)';
+            ctx.fillRect(dieX, dieY, maxDieWidth * scale, maxDieLength * scale);
+            ctx.strokeStyle = '#27ae60';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(dieX, dieY, maxDieWidth * scale, maxDieLength * scale);
+
+            // 添加标注
+            ctx.fillStyle = '#ecf0f1';
+            ctx.font = 'bold 14px Arial';
+            ctx.textAlign = 'center';
+            
+            // Paddle标注
+            ctx.fillText('Paddle', width / 2, paddleY + 20);
+            ctx.font = '12px Arial';
+            ctx.fillText(`${paddleWidth.toFixed(0)} × ${paddleLength.toFixed(0)} μm`, width / 2, paddleY + 38);
+            
+            // Die标注
+            ctx.font = 'bold 14px Arial';
+            ctx.fillStyle = '#2c3e50';
+            ctx.fillText('Max Die', width / 2, height / 2);
+            ctx.font = '12px Arial';
+            ctx.fillText(`${maxDieWidth.toFixed(0)} × ${maxDieLength.toFixed(0)} μm`, width / 2, height / 2 + 20);
+        }
+
+        // 页面加载时自动计算一次
+        window.onload = function() {
+            calculate();
+        };
+    </script>
+</body>
+</html>
