@@ -246,11 +246,15 @@
                         <option value="yes">有地线</option>
                     </select>
                 </div>
+
+                <button class="calculate-btn" onclick="exportDXF()" style="margin-top: 20px; background: linear-gradient(135deg, #27ae60 0%, #229954 100%);">
+                    📥 导出 LSP 脚本
+                </button>
             </div>
 
             <div>
                 <div class="preview-section">
-                    <h3>� 封算装预览图</h3>
+                    <h3>🔍 封装预览图</h3>
                     <canvas id="canvas" width="700" height="700"></canvas>
                 </div>
 
@@ -447,6 +451,133 @@
         window.onload = function() {
             calculate();
         };
+
+        // 导出LSP脚本函数
+        function exportDXF() {
+            // 获取当前参数
+            const pkgWidth = parseFloat(document.getElementById('pkgWidth').value);
+            const pkgLength = parseFloat(document.getElementById('pkgLength').value);
+            const pinWidth = parseFloat(document.getElementById('pinWidth').value);
+            const pinLength = parseFloat(document.getElementById('pinLength').value);
+            const pinPitch = parseFloat(document.getElementById('pinPitch').value);
+            const frameThickness = parseFloat(document.getElementById('frameThickness').value);
+            const pinsX = parseInt(document.getElementById('pinsX').value);
+            const pinsY = parseInt(document.getElementById('pinsY').value);
+
+            // 计算paddle尺寸
+            let offset = frameThickness === 152 ? 120 : 150;
+            let paddleWidth, paddleLength;
+
+            if (pinsY === 0) {
+                paddleWidth = pkgWidth - 2 * 200;
+            } else {
+                paddleWidth = pkgWidth - 2 * pinLength - 2 * offset;
+            }
+
+            if (pinsX === 0) {
+                paddleLength = pkgLength - 2 * 200;
+            } else {
+                paddleLength = pkgLength - 2 * pinLength - 2 * offset;
+            }
+
+            // 转换为毫米
+            const pkgW = pkgWidth / 1000;
+            const pkgL = pkgLength / 1000;
+            const pinW = pinWidth / 1000;
+            const pinL = pinLength / 1000;
+            const pitch = pinPitch / 1000;
+            const padW = paddleWidth / 1000;
+            const padL = paddleLength / 1000;
+
+            // 生成LSP脚本内容
+            let lsp = '';
+            lsp += ';;; QFN Package Drawing Script\r\n';
+            lsp += ';;; Package Size: ' + pkgWidth + 'x' + pkgLength + ' um\r\n';
+            lsp += ';;; Generated: ' + new Date().toLocaleString() + '\r\n';
+            lsp += '\r\n';
+            lsp += '(defun c:QFN ( / oldlayer)\r\n';
+            lsp += '  (setq oldlayer (getvar "CLAYER"))\r\n';
+            lsp += '  \r\n';
+            
+            // 创建图层
+            lsp += '  ;;; Create Layers\r\n';
+            lsp += '  (if (not (tblsearch "LAYER" "PKG_OUTLINE"))\r\n';
+            lsp += '    (command "._LAYER" "N" "PKG_OUTLINE" "C" "7" "PKG_OUTLINE" "")\r\n';
+            lsp += '  )\r\n';
+            lsp += '  (if (not (tblsearch "LAYER" "PINS"))\r\n';
+            lsp += '    (command "._LAYER" "N" "PINS" "C" "3" "PINS" "")\r\n';
+            lsp += '  )\r\n';
+            lsp += '  (if (not (tblsearch "LAYER" "PADDLE"))\r\n';
+            lsp += '    (command "._LAYER" "N" "PADDLE" "C" "1" "PADDLE" "")\r\n';
+            lsp += '  )\r\n';
+            lsp += '  \r\n';
+            
+            // 绘制封装外框
+            lsp += '  ;;; Draw Package Outline\r\n';
+            lsp += '  (command "._LAYER" "S" "PKG_OUTLINE" "")\r\n';
+            lsp += '  (command "._RECTANG" (list 0 0) (list ' + pkgW.toFixed(6) + ' ' + pkgL.toFixed(6) + '))\r\n';
+            lsp += '  \r\n';
+            
+            // 绘制引脚
+            lsp += '  ;;; Draw Pins\r\n';
+            lsp += '  (command "._LAYER" "S" "PINS" "")\r\n';
+            
+            // 上边和下边引脚 (X方向)
+            if (pinsX > 0) {
+                const startX = (pkgWidth - (pinsX - 1) * pinPitch) / 2 / 1000;
+                for (let i = 0; i < pinsX; i++) {
+                    const x = startX + i * pitch - pinW / 2;
+                    // 上边引脚
+                    lsp += '  (command "._RECTANG" (list ' + x.toFixed(6) + ' 0) (list ' + (x + pinW).toFixed(6) + ' ' + pinL.toFixed(6) + '))\r\n';
+                    // 下边引脚
+                    lsp += '  (command "._RECTANG" (list ' + x.toFixed(6) + ' ' + (pkgL - pinL).toFixed(6) + ') (list ' + (x + pinW).toFixed(6) + ' ' + pkgL.toFixed(6) + '))\r\n';
+                }
+            }
+
+            // 左边和右边引脚 (Y方向)
+            if (pinsY > 0) {
+                const startY = (pkgLength - (pinsY - 1) * pinPitch) / 2 / 1000;
+                for (let i = 0; i < pinsY; i++) {
+                    const y = startY + i * pitch - pinW / 2;
+                    // 左边引脚
+                    lsp += '  (command "._RECTANG" (list 0 ' + y.toFixed(6) + ') (list ' + pinL.toFixed(6) + ' ' + (y + pinW).toFixed(6) + '))\r\n';
+                    // 右边引脚
+                    lsp += '  (command "._RECTANG" (list ' + (pkgW - pinL).toFixed(6) + ' ' + y.toFixed(6) + ') (list ' + pkgW.toFixed(6) + ' ' + (y + pinW).toFixed(6) + '))\r\n';
+                }
+            }
+            lsp += '  \r\n';
+
+            // 绘制paddle
+            const paddleX = (pkgWidth - paddleWidth) / 2 / 1000;
+            const paddleY = (pkgLength - paddleLength) / 2 / 1000;
+            lsp += '  ;;; Draw Paddle\r\n';
+            lsp += '  (command "._LAYER" "S" "PADDLE" "")\r\n';
+            lsp += '  (command "._RECTANG" (list ' + paddleX.toFixed(6) + ' ' + paddleY.toFixed(6) + ') (list ' + (paddleX + padW).toFixed(6) + ' ' + (paddleY + padL).toFixed(6) + '))\r\n';
+            lsp += '  \r\n';
+            
+            // 恢复图层并缩放
+            lsp += '  ;;; Restore Layer and Zoom\r\n';
+            lsp += '  (command "._LAYER" "S" oldlayer "")\r\n';
+            lsp += '  (command "._ZOOM" "E")\r\n';
+            lsp += '  (princ "\\nQFN Drawing Complete! ")\r\n';
+            lsp += '  (princ)\r\n';
+            lsp += ')\r\n';
+            lsp += '\r\n';
+            lsp += ';;; Usage: Type QFN in command line\r\n';
+            lsp += '(princ "\\nType QFN to start drawing...")\r\n';
+            lsp += '(princ)\r\n';
+
+            // 下载LSP文件 - 使用UTF-8编码
+            const blob = new Blob([lsp], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `QFN_${pkgWidth}x${pkgLength}.lsp`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
     </script>
 </body>
 </html>
