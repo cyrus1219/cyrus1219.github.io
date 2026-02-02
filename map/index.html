@@ -217,6 +217,29 @@ let panY = 0;
 let isDragging = false;
 let lastMouseX = 0;
 let lastMouseY = 0;
+let binColors = {};
+let currentBins = [];
+
+// BIN 颜色表（A 和 X 固定，其他动态分配）
+var colorPalette = [
+    '#00d4ff', '#ff6b6b', '#ffa502', '#a55eea', '#26de81', 
+    '#fd79a8', '#00cec9', '#fdcb6e', '#6c5ce7', '#e17055',
+    '#74b9ff', '#55efc4', '#fab1a0', '#81ecec', '#dfe6e9'
+];
+
+function getBinColor(bin) {
+    if (bin === 'A') return '#00ff88';
+    if (bin === 'X') return '#ff4757';
+    if (bin === '.' || bin === '_') return '#0a0a14';
+    if (bin === 'D') return '#ffd700';
+    if (bin === 'G') return '#00ff88';
+    
+    if (!binColors[bin]) {
+        var usedCount = Object.keys(binColors).length;
+        binColors[bin] = colorPalette[usedCount % colorPalette.length];
+    }
+    return binColors[bin];
+}
 // 初始化
 document.addEventListener('DOMContentLoaded', function() {
     // 模式切换
@@ -419,7 +442,8 @@ function parseMapping(content) {
     
     for (var i = 0; i < lines.length; i++) {
         var line = lines[i].trimEnd();
-        if (/^[AX._\s]+$/.test(line) && line.length > 10) {
+        // 支持所有大写字母作为 BIN
+        if (/^[A-Z._\s]+$/.test(line) && line.length > 10) {
             var rowData = line.replace(/[_\s]/g, '.').split('');
             data.push(rowData);
             maxCols = Math.max(maxCols, rowData.length);
@@ -434,13 +458,27 @@ function parseMapping(content) {
 
 function getStats(data) {
     var good = 0, bad = 0;
+    var binCounts = {};
+    currentBins = [];
+    binColors = {}; // 重置颜色映射
+    
     for (var i = 0; i < data.length; i++) {
         for (var j = 0; j < data[i].length; j++) {
-            if (data[i][j] === 'A') good++;
-            else if (data[i][j] === 'X') bad++;
+            var cell = data[i][j];
+            if (cell === 'A') good++;
+            else if (cell === 'X') bad++;
+            
+            if (cell !== '.' && cell !== '_') {
+                if (!binCounts[cell]) {
+                    binCounts[cell] = 0;
+                    currentBins.push(cell);
+                }
+                binCounts[cell]++;
+            }
         }
     }
-    return { good: good, bad: bad, gross: good + bad };
+    
+    return { good: good, bad: bad, gross: good + bad, binCounts: binCounts };
 }
 
 
@@ -451,9 +489,17 @@ function updateInfo(data) {
     var html = '<div class="info-item"><div class="info-label">总行数</div><div class="info-value">' + data.length + '</div></div>' +
         '<div class="info-item"><div class="info-label">总列数</div><div class="info-value">' + (data[0] ? data[0].length : 0) + '</div></div>' +
         '<div class="info-item"><div class="info-label">Gross Die</div><div class="info-value">' + stats.gross + '</div></div>' +
-        '<div class="info-item"><div class="info-label">良品数</div><div class="info-value" style="color:#00ff88">' + stats.good + '</div></div>' +
-        '<div class="info-item"><div class="info-label">不良品数</div><div class="info-value" style="color:#ff4757">' + stats.bad + '</div></div>' +
+        '<div class="info-item"><div class="info-label">良品数 (A)</div><div class="info-value" style="color:#00ff88">' + stats.good + '</div></div>' +
+        '<div class="info-item"><div class="info-label">不良品数 (X)</div><div class="info-value" style="color:#ff4757">' + stats.bad + '</div></div>' +
         '<div class="info-item"><div class="info-label">良率</div><div class="info-value" style="color:#00d4ff">' + yieldRate + '%</div></div>';
+    
+    // 显示其他 BIN 的数量
+    for (var bin in stats.binCounts) {
+        if (bin !== 'A' && bin !== 'X') {
+            var color = getBinColor(bin);
+            html += '<div class="info-item"><div class="info-label">BIN ' + bin + '</div><div class="info-value" style="color:' + color + '">' + stats.binCounts[bin] + '</div></div>';
+        }
+    }
     
     document.getElementById('infoGrid').innerHTML = html;
     document.getElementById('infoPanel').style.display = 'block';
@@ -532,11 +578,17 @@ function drawWafer(data, isCompare) {
     var rows = data.length;
     var cols = data[0] ? data[0].length : 0;
     
-    // 提高分辨率：每个格子 6 像素，确保放大后清晰
-    var cellSize = 6;
+    // 计算合适的整数格子尺寸，使画面接近正方形
+    var baseSize = 2400;
+    var cellWidth = Math.round(baseSize / cols);
+    var cellHeight = Math.round(baseSize / rows);
     
-    baseCanvasWidth = cols * cellSize;
-    baseCanvasHeight = rows * cellSize;
+    // 确保最小尺寸
+    cellWidth = Math.max(cellWidth, 4);
+    cellHeight = Math.max(cellHeight, 4);
+    
+    baseCanvasWidth = cols * cellWidth;
+    baseCanvasHeight = rows * cellHeight;
     
     canvas.width = baseCanvasWidth;
     canvas.height = baseCanvasHeight;
@@ -544,25 +596,20 @@ function drawWafer(data, isCompare) {
     // 禁用抗锯齿，保持像素清晰
     ctx.imageSmoothingEnabled = false;
     
-    ctx.fillStyle = '#1a1a2e';
+    // 分隔线颜色作为背景
+    ctx.fillStyle = '#333344';
     ctx.fillRect(0, 0, baseCanvasWidth, baseCanvasHeight);
     
     for (var row = 0; row < rows; row++) {
         for (var col = 0; col < cols; col++) {
             var cell = data[row][col];
-            var x = col * cellSize;
-            var y = row * cellSize;
+            var x = col * cellWidth;
+            var y = row * cellHeight;
             
-            var color = null;
-            if (cell === 'A') color = '#00ff88';
-            else if (cell === 'X') color = '#ff4757';
-            else if (cell === 'D') color = '#ffd700';
-            else if (cell === 'G') color = '#00ff88';
+            var color = getBinColor(cell);
             
-            if (color) {
-                ctx.fillStyle = color;
-                ctx.fillRect(x + 1, y + 1, cellSize - 1, cellSize - 1);
-            }
+            ctx.fillStyle = color;
+            ctx.fillRect(x, y, cellWidth - 1, cellHeight - 1);
         }
     }
     
@@ -625,6 +672,15 @@ function updateLegend(isCompare, compareType) {
     } else {
         html = '<div class="legend-item"><div class="legend-color" style="background:#00ff88"></div><span>良品 (A)</span></div>' +
             '<div class="legend-item"><div class="legend-color" style="background:#ff4757"></div><span>不良品 (X)</span></div>';
+        
+        // 显示其他 BIN 的图例
+        for (var i = 0; i < currentBins.length; i++) {
+            var bin = currentBins[i];
+            if (bin !== 'A' && bin !== 'X') {
+                var color = getBinColor(bin);
+                html += '<div class="legend-item"><div class="legend-color" style="background:' + color + '"></div><span>BIN ' + bin + '</span></div>';
+            }
+        }
     }
     
     document.getElementById('legend').innerHTML = html;
