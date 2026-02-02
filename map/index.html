@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>晶圆 Mapping 可视化工具</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #fff;
+        }
+        .container { max-width: 1400px; margin: 0 auto; }
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2rem;
+            background: linear-gradient(90deg, #00d4ff, #00ff88);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .mode-switch { display: flex; justify-content: center; gap: 10px; margin-bottom: 20px; }
+        .mode-btn {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 2px solid rgba(255,255,255,0.3);
+            padding: 10px 25px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .mode-btn.active {
+            background: linear-gradient(90deg, #00d4ff, #00ff88);
+            color: #1a1a2e;
+            border-color: transparent;
+        }
+        .mode-btn:hover { transform: scale(1.05); }
+        .upload-section {
+            background: rgba(255,255,255,0.1);
+            border-radius: 16px;
+            padding: 30px;
+            margin-bottom: 20px;
+            text-align: center;
+            border: 2px dashed rgba(255,255,255,0.3);
+            transition: all 0.3s;
+        }
+        .upload-section:hover { border-color: #00d4ff; background: rgba(255,255,255,0.15); }
+        .upload-section.dragover { border-color: #00ff88; background: rgba(0,255,136,0.1); }
+        .upload-section.has-file { border-color: #00ff88; border-style: solid; }
+        .file-input { display: none; }
+        .upload-btn {
+            background: linear-gradient(90deg, #00d4ff, #00ff88);
+            color: #1a1a2e;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        .upload-btn:hover { transform: scale(1.05); }
+        .upload-hint { margin-top: 15px; color: rgba(255,255,255,0.6); font-size: 0.9rem; }
+        .file-name { margin-top: 10px; color: #00ff88; font-weight: bold; }
+        .info-panel { background: rgba(255,255,255,0.1); border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+        .info-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 15px; }
+        .info-item { background: rgba(255,255,255,0.05); padding: 15px; border-radius: 8px; text-align: center; }
+        .info-label { font-size: 0.8rem; color: rgba(255,255,255,0.6); margin-bottom: 5px; }
+        .info-value { font-size: 1.2rem; font-weight: bold; }
+        .wafer-container { 
+            display: flex; 
+            justify-content: center; 
+            padding: 20px;
+        }
+        .canvas-wrapper {
+            position: relative;
+            width: 800px;
+            height: 600px;
+            overflow: hidden;
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 8px;
+            background: #0a0a14;
+            cursor: grab;
+        }
+        .canvas-wrapper:active { cursor: grabbing; }
+        .canvas-wrapper.dragging { cursor: grabbing; }
+        #waferCanvas { 
+            position: absolute;
+            top: 0;
+            left: 0;
+            transform-origin: 0 0;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+        }
+        .zoom-controls {
+            display: none;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        .zoom-btn {
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 8px 16px;
+            font-size: 1rem;
+            border-radius: 6px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .zoom-btn:hover { background: rgba(255,255,255,0.2); }
+        .zoom-info { color: rgba(255,255,255,0.6); padding: 8px 16px; min-width: 80px; text-align: center; }
+        .zoom-hint { color: rgba(255,255,255,0.4); font-size: 0.85rem; margin-left: 15px; }
+        .legend { display: flex; justify-content: center; gap: 30px; margin-top: 20px; }
+        .legend-item { display: flex; align-items: center; gap: 8px; }
+        .legend-color { width: 20px; height: 20px; border-radius: 4px; }
+        .download-btn {
+            display: block;
+            margin: 20px auto;
+            background: linear-gradient(90deg, #ff6b6b, #ffa502);
+            color: #fff;
+            border: none;
+            padding: 12px 30px;
+            font-size: 1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔬 晶圆 Mapping 可视化工具</h1>
+        
+        <div class="mode-switch">
+            <button class="mode-btn active" id="singleBtn">单文件查看</button>
+            <button class="mode-btn" id="compareBtn">双文件比对</button>
+        </div>
+
+        <div id="singleMode">
+            <div class="upload-section" id="dropZone">
+                <input type="file" id="fileInput" class="file-input" accept=".txt">
+                <button class="upload-btn" id="selectFileBtn">📁 选择 Mapping 文件</button>
+                <p class="upload-hint">支持拖拽上传 TXT 文件 | A=良品(绿) X=不良品(红) .=空</p>
+                <p class="file-name" id="fileName1"></p>
+            </div>
+        </div>
+
+        <div id="compareMode" style="display:none;">
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:20px;">
+                <div class="upload-section" id="dropZoneA">
+                    <input type="file" id="fileInputA" class="file-input" accept=".txt">
+                    <button class="upload-btn" id="selectFileABtn">📁 文件 A</button>
+                    <p class="upload-hint">上传第一份 Mapping 文件</p>
+                    <p class="file-name" id="fileNameA"></p>
+                </div>
+                <div class="upload-section" id="dropZoneB">
+                    <input type="file" id="fileInputB" class="file-input" accept=".txt">
+                    <button class="upload-btn" id="selectFileBBtn">📁 文件 B</button>
+                    <p class="upload-hint">上传第二份 Mapping 文件</p>
+                    <p class="file-name" id="fileNameB"></p>
+                </div>
+            </div>
+            <button class="upload-btn" id="startCompareBtn" style="display:none; margin:20px auto;">🔍 开始比对</button>
+            <div id="compareOptions" style="display:none; text-align:center; margin-top:15px;">
+                <label style="margin-right:20px; cursor:pointer;">
+                    <input type="radio" name="compareType" value="gross" checked style="margin-right:5px;">
+                    比对 Gross Die
+                </label>
+                <label style="cursor:pointer;">
+                    <input type="radio" name="compareType" value="good" style="margin-right:5px;">
+                    比对 Good Die
+                </label>
+            </div>
+        </div>
+
+        <div class="info-panel" id="infoPanel" style="display:none;">
+            <div class="info-grid" id="infoGrid"></div>
+        </div>
+
+        <div class="zoom-controls" id="zoomControls">
+            <button class="zoom-btn" id="zoomOutBtn">➖</button>
+            <input type="range" id="zoomSlider" min="10" max="500" value="100" style="width:150px;">
+            <button class="zoom-btn" id="zoomInBtn">➕</button>
+            <span class="zoom-info" id="zoomInfo">100%</span>
+            <button class="zoom-btn" id="zoomFitBtn">适应</button>
+            <button class="zoom-btn" id="zoomResetBtn">1:1</button>
+            <span class="zoom-hint">滚轮缩放 | 拖动平移</span>
+        </div>
+
+        <div class="wafer-container">
+            <div class="canvas-wrapper" id="canvasWrapper">
+                <canvas id="waferCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="legend" id="legend"></div>
+
+        <button class="download-btn" id="downloadBtn" style="display:none;">💾 下载图片</button>
+    </div>
+
+    <script>
+let currentMode = 'single';
+let waferData = [];
+let waferDataA = [];
+let waferDataB = [];
+let currentZoom = 1;
+let baseCanvasWidth = 0;
+let baseCanvasHeight = 0;
+let panX = 0;
+let panY = 0;
+let isDragging = false;
+let lastMouseX = 0;
+let lastMouseY = 0;
+// 初始化
+document.addEventListener('DOMContentLoaded', function() {
+    // 模式切换
+    document.getElementById('singleBtn').addEventListener('click', function() {
+        switchMode('single', this);
+    });
+    document.getElementById('compareBtn').addEventListener('click', function() {
+        switchMode('compare', this);
+    });
+
+    // 单文件模式
+    document.getElementById('selectFileBtn').addEventListener('click', function() {
+        document.getElementById('fileInput').click();
+    });
+    document.getElementById('fileInput').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            document.getElementById('fileName1').textContent = file.name;
+            processFile(file, 'single');
+        }
+    });
+    setupDragDrop(document.getElementById('dropZone'), function(file) {
+        document.getElementById('fileName1').textContent = file.name;
+        processFile(file, 'single');
+    });
+
+    // 比对模式 - 文件 A
+    document.getElementById('selectFileABtn').addEventListener('click', function() {
+        document.getElementById('fileInputA').click();
+    });
+    document.getElementById('fileInputA').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            document.getElementById('fileNameA').textContent = file.name;
+            document.getElementById('dropZoneA').classList.add('has-file');
+            processFile(file, 'A');
+        }
+    });
+    setupDragDrop(document.getElementById('dropZoneA'), function(file) {
+        document.getElementById('fileNameA').textContent = file.name;
+        document.getElementById('dropZoneA').classList.add('has-file');
+        processFile(file, 'A');
+    });
+
+    // 比对模式 - 文件 B
+    document.getElementById('selectFileBBtn').addEventListener('click', function() {
+        document.getElementById('fileInputB').click();
+    });
+    document.getElementById('fileInputB').addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            document.getElementById('fileNameB').textContent = file.name;
+            document.getElementById('dropZoneB').classList.add('has-file');
+            processFile(file, 'B');
+        }
+    });
+    setupDragDrop(document.getElementById('dropZoneB'), function(file) {
+        document.getElementById('fileNameB').textContent = file.name;
+        document.getElementById('dropZoneB').classList.add('has-file');
+        processFile(file, 'B');
+    });
+
+    // 开始比对按钮
+    document.getElementById('startCompareBtn').addEventListener('click', compareFiles);
+
+    // 下载按钮
+    document.getElementById('downloadBtn').addEventListener('click', downloadImage);
+
+    // 缩放按钮
+    document.getElementById('zoomInBtn').addEventListener('click', function() { zoomAt(1.25); });
+    document.getElementById('zoomOutBtn').addEventListener('click', function() { zoomAt(0.8); });
+    document.getElementById('zoomResetBtn').addEventListener('click', function() { 
+        currentZoom = 1;
+        centerCanvas();
+    });
+    document.getElementById('zoomFitBtn').addEventListener('click', fitToView);
+    
+    // 缩放滑块
+    document.getElementById('zoomSlider').addEventListener('input', function(e) {
+        currentZoom = e.target.value / 100;
+        applyTransform();
+    });
+
+    // 鼠标滚轮缩放（以鼠标位置为中心）
+    var wrapper = document.getElementById('canvasWrapper');
+    wrapper.addEventListener('wheel', function(e) {
+        e.preventDefault();
+        var rect = wrapper.getBoundingClientRect();
+        var mouseX = e.clientX - rect.left;
+        var mouseY = e.clientY - rect.top;
+        var factor = e.deltaY < 0 ? 1.15 : 0.87;
+        zoomAtPoint(factor, mouseX, mouseY);
+    });
+    
+    // 拖动平移
+    wrapper.addEventListener('mousedown', function(e) {
+        isDragging = true;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        wrapper.classList.add('dragging');
+    });
+    
+    document.addEventListener('mousemove', function(e) {
+        if (!isDragging) return;
+        var dx = e.clientX - lastMouseX;
+        var dy = e.clientY - lastMouseY;
+        panX += dx;
+        panY += dy;
+        lastMouseX = e.clientX;
+        lastMouseY = e.clientY;
+        applyTransform();
+    });
+    
+    document.addEventListener('mouseup', function() {
+        isDragging = false;
+        wrapper.classList.remove('dragging');
+    });
+
+    updateLegend(false);
+});
+
+function switchMode(mode, btn) {
+    currentMode = mode;
+    document.querySelectorAll('.mode-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    
+    document.getElementById('singleMode').style.display = mode === 'single' ? 'block' : 'none';
+    document.getElementById('compareMode').style.display = mode === 'compare' ? 'block' : 'none';
+    document.getElementById('infoPanel').style.display = 'none';
+    document.getElementById('downloadBtn').style.display = 'none';
+    
+    var canvas = document.getElementById('waferCanvas');
+    canvas.width = 0;
+    canvas.height = 0;
+    
+    waferDataA = [];
+    waferDataB = [];
+    document.getElementById('fileNameA').textContent = '';
+    document.getElementById('fileNameB').textContent = '';
+    document.getElementById('dropZoneA').classList.remove('has-file');
+    document.getElementById('dropZoneB').classList.remove('has-file');
+    document.getElementById('startCompareBtn').style.display = 'none';
+    document.getElementById('compareOptions').style.display = 'none';
+    
+    updateLegend(false);
+}
+
+function setupDragDrop(zone, callback) {
+    zone.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        zone.classList.add('dragover');
+    });
+    zone.addEventListener('dragleave', function() {
+        zone.classList.remove('dragover');
+    });
+    zone.addEventListener('drop', function(e) {
+        e.preventDefault();
+        zone.classList.remove('dragover');
+        var file = e.dataTransfer.files[0];
+        if (file && file.name.endsWith('.txt')) {
+            callback(file);
+        }
+    });
+}
+
+function processFile(file, target) {
+    var reader = new FileReader();
+    reader.onload = function(e) {
+        var data = parseMapping(e.target.result);
+        if (target === 'single') {
+            waferData = data;
+            if (data.length > 0) {
+                updateInfo(data);
+                drawWafer(data, false);
+                updateLegend(false);
+            }
+        } else if (target === 'A') {
+            waferDataA = data;
+            checkCompareReady();
+        } else if (target === 'B') {
+            waferDataB = data;
+            checkCompareReady();
+        }
+    };
+    reader.readAsText(file);
+}
+
+function checkCompareReady() {
+    var btn = document.getElementById('startCompareBtn');
+    var options = document.getElementById('compareOptions');
+    var ready = waferDataA.length > 0 && waferDataB.length > 0;
+    btn.style.display = ready ? 'block' : 'none';
+    options.style.display = ready ? 'block' : 'none';
+}
+
+function parseMapping(content) {
+    var lines = content.split('\n');
+    var data = [];
+    var maxCols = 0;
+    
+    for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trimEnd();
+        if (/^[AX._\s]+$/.test(line) && line.length > 10) {
+            var rowData = line.replace(/[_\s]/g, '.').split('');
+            data.push(rowData);
+            maxCols = Math.max(maxCols, rowData.length);
+        }
+    }
+    
+    return data.map(function(row) {
+        while (row.length < maxCols) row.push('.');
+        return row;
+    });
+}
+
+function getStats(data) {
+    var good = 0, bad = 0;
+    for (var i = 0; i < data.length; i++) {
+        for (var j = 0; j < data[i].length; j++) {
+            if (data[i][j] === 'A') good++;
+            else if (data[i][j] === 'X') bad++;
+        }
+    }
+    return { good: good, bad: bad, gross: good + bad };
+}
+
+
+function updateInfo(data) {
+    var stats = getStats(data);
+    var yieldRate = stats.gross > 0 ? ((stats.good / stats.gross) * 100).toFixed(2) : 0;
+    
+    var html = '<div class="info-item"><div class="info-label">总行数</div><div class="info-value">' + data.length + '</div></div>' +
+        '<div class="info-item"><div class="info-label">总列数</div><div class="info-value">' + (data[0] ? data[0].length : 0) + '</div></div>' +
+        '<div class="info-item"><div class="info-label">Gross Die</div><div class="info-value">' + stats.gross + '</div></div>' +
+        '<div class="info-item"><div class="info-label">良品数</div><div class="info-value" style="color:#00ff88">' + stats.good + '</div></div>' +
+        '<div class="info-item"><div class="info-label">不良品数</div><div class="info-value" style="color:#ff4757">' + stats.bad + '</div></div>' +
+        '<div class="info-item"><div class="info-label">良率</div><div class="info-value" style="color:#00d4ff">' + yieldRate + '%</div></div>';
+    
+    document.getElementById('infoGrid').innerHTML = html;
+    document.getElementById('infoPanel').style.display = 'block';
+}
+
+function compareFiles() {
+    var compareType = document.querySelector('input[name="compareType"]:checked').value;
+    var rows = Math.max(waferDataA.length, waferDataB.length);
+    var colsA = waferDataA[0] ? waferDataA[0].length : 0;
+    var colsB = waferDataB[0] ? waferDataB[0].length : 0;
+    var cols = Math.max(colsA, colsB);
+    
+    var compareData = [];
+    var diffCount = 0;
+    
+    for (var r = 0; r < rows; r++) {
+        var row = [];
+        for (var c = 0; c < cols; c++) {
+            var cellA = (waferDataA[r] && waferDataA[r][c]) ? waferDataA[r][c] : '.';
+            var cellB = (waferDataB[r] && waferDataB[r][c]) ? waferDataB[r][c] : '.';
+            
+            if (compareType === 'gross') {
+                // 比对 Gross Die：只要是 die（A 或 X）就算
+                var isDieA = (cellA === 'A' || cellA === 'X');
+                var isDieB = (cellB === 'A' || cellB === 'X');
+                
+                if (isDieA !== isDieB) {
+                    row.push('D');
+                    diffCount++;
+                } else if (isDieA && isDieB) {
+                    row.push('G');
+                } else {
+                    row.push('.');
+                }
+            } else {
+                // 比对 Good Die：只比对良品 A
+                var isGoodA = (cellA === 'A');
+                var isGoodB = (cellB === 'A');
+                
+                if (isGoodA !== isGoodB) {
+                    row.push('D');
+                    diffCount++;
+                } else if (isGoodA && isGoodB) {
+                    row.push('G');
+                } else {
+                    row.push('.');
+                }
+            }
+        }
+        compareData.push(row);
+    }
+    
+    var statsA = getStats(waferDataA);
+    var statsB = getStats(waferDataB);
+    
+    var html = '<div class="info-item"><div class="info-label">文件 A Gross Die</div><div class="info-value">' + statsA.gross + '</div></div>' +
+        '<div class="info-item"><div class="info-label">文件 B Gross Die</div><div class="info-value">' + statsB.gross + '</div></div>' +
+        '<div class="info-item"><div class="info-label">文件 A 良品</div><div class="info-value" style="color:#00ff88">' + statsA.good + '</div></div>' +
+        '<div class="info-item"><div class="info-label">文件 B 良品</div><div class="info-value" style="color:#00ff88">' + statsB.good + '</div></div>' +
+        '<div class="info-item"><div class="info-label">文件 A 不良品</div><div class="info-value" style="color:#ff4757">' + statsA.bad + '</div></div>' +
+        '<div class="info-item"><div class="info-label">文件 B 不良品</div><div class="info-value" style="color:#ff4757">' + statsB.bad + '</div></div>' +
+        '<div class="info-item"><div class="info-label">差异位置数</div><div class="info-value" style="color:#ffd700">' + diffCount + '</div></div>';
+    
+    document.getElementById('infoGrid').innerHTML = html;
+    document.getElementById('infoPanel').style.display = 'block';
+    
+    drawWafer(compareData, true);
+    updateLegend(true, compareType);
+    waferData = compareData;
+}
+
+function drawWafer(data, isCompare) {
+    var canvas = document.getElementById('waferCanvas');
+    var ctx = canvas.getContext('2d');
+    
+    var rows = data.length;
+    var cols = data[0] ? data[0].length : 0;
+    
+    // 提高分辨率：每个格子 6 像素，确保放大后清晰
+    var cellSize = 6;
+    
+    baseCanvasWidth = cols * cellSize;
+    baseCanvasHeight = rows * cellSize;
+    
+    canvas.width = baseCanvasWidth;
+    canvas.height = baseCanvasHeight;
+    
+    // 禁用抗锯齿，保持像素清晰
+    ctx.imageSmoothingEnabled = false;
+    
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, baseCanvasWidth, baseCanvasHeight);
+    
+    for (var row = 0; row < rows; row++) {
+        for (var col = 0; col < cols; col++) {
+            var cell = data[row][col];
+            var x = col * cellSize;
+            var y = row * cellSize;
+            
+            var color = null;
+            if (cell === 'A') color = '#00ff88';
+            else if (cell === 'X') color = '#ff4757';
+            else if (cell === 'D') color = '#ffd700';
+            else if (cell === 'G') color = '#00ff88';
+            
+            if (color) {
+                ctx.fillStyle = color;
+                ctx.fillRect(x + 1, y + 1, cellSize - 1, cellSize - 1);
+            }
+        }
+    }
+    
+    document.getElementById('downloadBtn').style.display = 'block';
+    document.getElementById('zoomControls').style.display = 'flex';
+    currentZoom = 1;
+    panX = 0;
+    panY = 0;
+    fitToView();
+}
+
+function zoomAt(factor) {
+    var wrapper = document.getElementById('canvasWrapper');
+    var centerX = wrapper.clientWidth / 2;
+    var centerY = wrapper.clientHeight / 2;
+    zoomAtPoint(factor, centerX, centerY);
+}
+
+function zoomAtPoint(factor, pointX, pointY) {
+    var oldZoom = currentZoom;
+    currentZoom *= factor;
+    currentZoom = Math.max(0.1, Math.min(5, currentZoom));
+    
+    // 调整平移以保持鼠标位置不变
+    var zoomRatio = currentZoom / oldZoom;
+    panX = pointX - (pointX - panX) * zoomRatio;
+    panY = pointY - (pointY - panY) * zoomRatio;
+    
+    applyTransform();
+}
+
+function fitToView() {
+    var wrapper = document.getElementById('canvasWrapper');
+    var scaleX = wrapper.clientWidth / baseCanvasWidth;
+    var scaleY = wrapper.clientHeight / baseCanvasHeight;
+    currentZoom = Math.min(scaleX, scaleY) * 0.95;
+    centerCanvas();
+}
+
+function centerCanvas() {
+    var wrapper = document.getElementById('canvasWrapper');
+    panX = (wrapper.clientWidth - baseCanvasWidth * currentZoom) / 2;
+    panY = (wrapper.clientHeight - baseCanvasHeight * currentZoom) / 2;
+    applyTransform();
+}
+
+function applyTransform() {
+    var canvas = document.getElementById('waferCanvas');
+    canvas.style.transform = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + currentZoom + ')';
+    document.getElementById('zoomInfo').textContent = Math.round(currentZoom * 100) + '%';
+    document.getElementById('zoomSlider').value = Math.round(currentZoom * 100);
+}
+
+function updateLegend(isCompare, compareType) {
+    var html;
+    if (isCompare) {
+        var matchLabel = compareType === 'good' ? '匹配 Good Die' : '匹配 Gross Die';
+        html = '<div class="legend-item"><div class="legend-color" style="background:#00ff88"></div><span>' + matchLabel + '</span></div>' +
+            '<div class="legend-item"><div class="legend-color" style="background:#ffd700"></div><span>差异位置</span></div>';
+    } else {
+        html = '<div class="legend-item"><div class="legend-color" style="background:#00ff88"></div><span>良品 (A)</span></div>' +
+            '<div class="legend-item"><div class="legend-color" style="background:#ff4757"></div><span>不良品 (X)</span></div>';
+    }
+    
+    document.getElementById('legend').innerHTML = html;
+}
+
+function downloadImage() {
+    var canvas = document.getElementById('waferCanvas');
+    var link = document.createElement('a');
+    link.download = 'wafer-map.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+}
+
+window.addEventListener('resize', function() {
+    if (waferData.length > 0) {
+        drawWafer(waferData, currentMode === 'compare');
+    }
+});
+    </script>
+</body>
+</html>
