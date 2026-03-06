@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPC 统计过程控制分析工具</title>
+    <link rel="stylesheet" href="css/style.css">
+    <!-- ECharts -->
+    <script src="https://cdn.jsdelivr.net/npm/echarts@5.4.3/dist/echarts.min.js"></script>
+</head>
+<body>
+
+<div class="top-nav">
+    <div class="logo">SPC <span>统计过程控制</span> 分析工具</div>
+    <div style="font-size:12px;opacity:0.8;">CPK · 控制图 · 直方图 · 运行图</div>
+</div>
+
+<div class="main-layout">
+
+    <!-- 左侧：设置 + 统计结果 -->
+    <div class="left-panel">
+
+        <!-- 参数设置 -->
+        <div class="card">
+            <div class="card-header"><span class="icon">⚙</span> 参数设置</div>
+            <div class="card-body">
+                <div class="form-row">
+                    <label>图表类型</label>
+                    <select id="chartType">
+                        <option value="XR">XR 图（均值-极差）</option>
+                        <option value="IMR">IMR 图（单值-移动极差）</option>
+                    </select>
+                </div>
+                <div class="form-row" id="rowSubGroup">
+                    <label>子组大小</label>
+                    <input type="number" id="subGroupSize" value="5" min="2" max="10">
+                </div>
+                <hr class="section-divider">
+                <div class="form-row">
+                    <label>USL 上规格</label>
+                    <input type="checkbox" id="uslEnabled" checked title="启用">
+                    <input type="number" id="usl" value="58" step="0.01">
+                </div>
+                <div class="form-row">
+                    <label>Target 目标</label>
+                    <input type="checkbox" id="targetEnabled" checked title="启用">
+                    <input type="number" id="target" value="48" step="0.01">
+                </div>
+                <div class="form-row">
+                    <label>LSL 下规格</label>
+                    <input type="checkbox" id="lslEnabled" checked title="启用">
+                    <input type="number" id="lsl" value="38" step="0.01">
+                </div>
+                <hr class="section-divider">
+                <div class="form-row">
+                    <label>小数位数</label>
+                    <select id="digit">
+                        <option value="2" selected>2</option>
+                        <option value="3">3</option>
+                        <option value="4">4</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据输入 -->
+        <div class="card">
+            <div class="card-header"><span class="icon">📋</span> 数据输入</div>
+            <div class="card-body">
+                <textarea class="data-input-area" id="dataInput" placeholder="请输入数值数据，支持：
+• 空格/逗号/换行 分隔
+• 直接粘贴 Excel 数据"></textarea>
+                <div class="input-hint">支持粘贴 Excel 数据，空格/逗号/换行均可</div>
+                <div class="sample-info" id="sampleInfo">样本数：<span id="sampleCount">0</span></div>
+                <div class="btn-group" style="margin-top:8px;">
+                    <button class="btn btn-primary" onclick="App.calc()">▶ 计算分析</button>
+                    <button class="btn btn-danger" onclick="App.clear()">✕ 清空</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 统计结果 -->
+        <div class="card">
+            <div class="card-header"><span class="icon">📊</span> 统计结果</div>
+            <div class="card-body" id="statResult">
+                <div style="color:#bbb;text-align:center;padding:20px 0;font-size:12px;">请输入数据后点击计算</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- 右侧：图表区 -->
+    <div class="right-panel">
+
+        <!-- 运行图 -->
+        <div class="card">
+            <div class="card-header"><span class="icon">📈</span> 运行图</div>
+            <div class="card-body" style="padding:6px;">
+                <div id="chartRun" style="height:180px;"></div>
+            </div>
+        </div>
+
+        <!-- 直方图 + 正态分布 -->
+        <div class="card">
+            <div class="card-header"><span class="icon">📉</span> 直方图 + 正态分布曲线</div>
+            <div class="card-body" style="padding:6px;">
+                <div id="chartHist" style="height:260px;"></div>
+            </div>
+        </div>
+
+        <!-- 控制图 -->
+        <div class="card">
+            <div class="card-header"><span class="icon">🎯</span> 控制图</div>
+            <div class="card-body" style="padding:6px;">
+                <div class="tab-nav" id="ctlTabNav">
+                    <div class="tab-item active" data-tab="g1">X̄ 图 / I 图</div>
+                    <div class="tab-item" data-tab="g2">R 图 / MR 图</div>
+                </div>
+                <div class="tab-content active" id="tab-g1">
+                    <div id="chartG1" style="height:220px;"></div>
+                </div>
+                <div class="tab-content" id="tab-g2">
+                    <div id="chartG2" style="height:220px;"></div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script src="js/spc-calc.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
