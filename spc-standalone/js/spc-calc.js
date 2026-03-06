@@ -207,36 +207,138 @@ const SPCCalc = {
         };
     },
 
-    // 判异规则检测（返回异常点索引）
-    detectOOC(points, ucl, cl, lcl) {
-        const ooc = new Set();
+    /**
+     * 八大判异准则检测
+     * @param {number[]} points - 控制图数据点
+     * @param {number} ucl - 控制上限 (+3σ)
+     * @param {number} cl  - 中心线
+     * @param {number} lcl - 控制下限 (-3σ)
+     * @param {object} enabledRules - { r1:true, r2:true, ... } 各规则是否启用
+     * @returns {{ oocPoints: Set<number>, violations: Array<{rule,indices,desc}> }}
+     */
+    detectOOC(points, ucl, cl, lcl, enabledRules = {}) {
+        const rules = Object.assign(
+            { r1:true, r2:true, r3:true, r4:true, r5:true, r6:true, r7:true, r8:true },
+            enabledRules
+        );
         const n = points.length;
+        const sigma = (ucl - cl) / 3; // 1σ 宽度
 
-        // 规则1：超出控制限
-        points.forEach((v, i) => {
-            if (v > ucl || v < lcl) ooc.add(i);
-        });
+        // 区域判断：返回点相对中心线的区域 1=C区(0~1σ), 2=B区(1~2σ), 3=A区(2~3σ), 4=超出(>3σ)
+        // 正数=中心线上方，负数=中心线下方
+        const zone = v => {
+            const d = (v - cl) / sigma;
+            const abs = Math.abs(d);
+            const sign = d >= 0 ? 1 : -1;
+            if (abs > 3) return sign * 4;
+            if (abs > 2) return sign * 3;
+            if (abs > 1) return sign * 2;
+            return sign * 1;
+        };
 
-        // 规则2：连续9点在中心线同侧
-        for (let i = 8; i < n; i++) {
-            const seg = points.slice(i - 8, i + 1);
-            if (seg.every(v => v > cl) || seg.every(v => v < cl)) {
-                seg.forEach((_, j) => ooc.add(i - 8 + j));
+        const zones = points.map(zone);
+        const oocPoints = new Set();
+        const violations = [];
+
+        const mark = (indices, rule, desc) => {
+            indices.forEach(i => oocPoints.add(i));
+            violations.push({ rule, indices: [...indices], desc });
+        };
+
+        // 规则1：一个点落在A区以外（超出±3σ）
+        if (rules.r1) {
+            points.forEach((v, i) => {
+                if (v > ucl || v < lcl) mark([i], 1, `点#${i+1} 超出控制限`);
+            });
+        }
+
+        // 规则2：连续9个点落在中心线同一侧
+        if (rules.r2) {
+            for (let i = 8; i < n; i++) {
+                const seg = zones.slice(i - 8, i + 1);
+                if (seg.every(z => z > 0) || seg.every(z => z < 0)) {
+                    mark(Array.from({length:9}, (_,j) => i-8+j), 2, `点#${i-7}~#${i+1} 连续9点在中心线同侧`);
+                }
             }
         }
 
-        // 规则3：连续6点递增或递减
-        for (let i = 5; i < n; i++) {
-            const seg = points.slice(i - 5, i + 1);
-            let up = true, down = true;
-            for (let j = 1; j < seg.length; j++) {
-                if (seg[j] <= seg[j-1]) up = false;
-                if (seg[j] >= seg[j-1]) down = false;
+        // 规则3：连续6个点递增或递减
+        if (rules.r3) {
+            for (let i = 5; i < n; i++) {
+                const seg = points.slice(i - 5, i + 1);
+                let up = true, down = true;
+                for (let j = 1; j < seg.length; j++) {
+                    if (seg[j] <= seg[j-1]) up = false;
+                    if (seg[j] >= seg[j-1]) down = false;
+                }
+                if (up || down) mark(Array.from({length:6}, (_,j) => i-5+j), 3, `点#${i-4}~#${i+1} 连续6点${up?'递增':'递减'}`);
             }
-            if (up || down) seg.forEach((_, j) => ooc.add(i - 5 + j));
         }
 
-        return [...ooc];
+        // 规则4：连续14个点交替上下
+        if (rules.r4) {
+            for (let i = 13; i < n; i++) {
+                const seg = points.slice(i - 13, i + 1);
+                let alt = true;
+                for (let j = 1; j < seg.length; j++) {
+                    const up = seg[j] > seg[j-1];
+                    const prevUp = seg[j-1] > seg[j-2];
+                    if (j >= 2 && up === prevUp) { alt = false; break; }
+                }
+                if (alt) mark(Array.from({length:14}, (_,j) => i-13+j), 4, `点#${i-12}~#${i+1} 连续14点交替上下`);
+            }
+        }
+
+        // 规则5：连续3个点中有2个点在中心线同侧B区以外（|zone|>=2，同号）
+        if (rules.r5) {
+            for (let i = 2; i < n; i++) {
+                const seg = zones.slice(i - 2, i + 1);
+                const aboveB = seg.filter(z => z >= 2);
+                const belowB = seg.filter(z => z <= -2);
+                if (aboveB.length >= 2 || belowB.length >= 2) {
+                    mark(Array.from({length:3}, (_,j) => i-2+j), 5, `点#${i-1}~#${i+1} 连续3点中2点在B区外同侧`);
+                }
+            }
+        }
+
+        // 规则6：连续5个点中有4个点在中心线同侧C区以外（|zone|>=1，同号）
+        if (rules.r6) {
+            for (let i = 4; i < n; i++) {
+                const seg = zones.slice(i - 4, i + 1);
+                const aboveC = seg.filter(z => z >= 1).length; // 上方（含C区及以外）
+                const belowC = seg.filter(z => z <= -1).length;
+                // C区以外 = |zone|>=2
+                const aboveOut = seg.filter(z => z >= 2).length;
+                const belowOut = seg.filter(z => z <= -2).length;
+                if (aboveOut >= 4 || belowOut >= 4) {
+                    mark(Array.from({length:5}, (_,j) => i-4+j), 6, `点#${i-3}~#${i+1} 连续5点中4点在C区外同侧`);
+                }
+            }
+        }
+
+        // 规则7：连续15个点落在中心线两侧C区以内（|zone|===1，即±1σ内）
+        if (rules.r7) {
+            for (let i = 14; i < n; i++) {
+                const seg = zones.slice(i - 14, i + 1);
+                if (seg.every(z => Math.abs(z) === 1)) {
+                    mark(Array.from({length:15}, (_,j) => i-14+j), 7, `点#${i-13}~#${i+1} 连续15点在C区内`);
+                }
+            }
+        }
+
+        // 规则8：连续8个点在中心线两侧且无一在C区内（|zone|>=2）
+        if (rules.r8) {
+            for (let i = 7; i < n; i++) {
+                const seg = zones.slice(i - 7, i + 1);
+                const bothSides = seg.some(z => z > 0) && seg.some(z => z < 0);
+                const noneInC = seg.every(z => Math.abs(z) >= 2);
+                if (bothSides && noneInC) {
+                    mark(Array.from({length:8}, (_,j) => i-7+j), 8, `点#${i-6}~#${i+1} 连续8点两侧且无一在C区`);
+                }
+            }
+        }
+
+        return { oocPoints, violations };
     },
 
     round(v, n = 2) {

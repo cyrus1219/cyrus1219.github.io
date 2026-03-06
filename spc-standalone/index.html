@@ -117,10 +117,48 @@
                     <div class="tab-item" data-tab="g2">R 图 / MR 图</div>
                 </div>
                 <div class="tab-content active" id="tab-g1">
-                    <div id="chartG1" style="height:220px;"></div>
+                    <div id="chartG1" style="height:240px;"></div>
                 </div>
                 <div class="tab-content" id="tab-g2">
-                    <div id="chartG2" style="height:220px;"></div>
+                    <div id="chartG2" style="height:240px;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 判异准则 + 判异结果 -->
+        <div class="card">
+            <div class="card-header"><span class="icon">🔍</span> 判异准则（适用于 X̄/I 图）</div>
+            <div class="card-body" style="padding:8px 10px;">
+                <div class="rule-grid">
+                    <label class="rule-item" title="一个点落在A区以外（超出±3σ）">
+                        <input type="checkbox" id="rule1" checked> <span class="rule-num">准则1</span> 超出控制限
+                    </label>
+                    <label class="rule-item" title="连续9个点落在中心线同一侧">
+                        <input type="checkbox" id="rule2" checked> <span class="rule-num">准则2</span> 连续9点同侧
+                    </label>
+                    <label class="rule-item" title="连续6个点递增或递减">
+                        <input type="checkbox" id="rule3" checked> <span class="rule-num">准则3</span> 连续6点趋势
+                    </label>
+                    <label class="rule-item" title="连续14个点交替上下">
+                        <input type="checkbox" id="rule4"> <span class="rule-num">准则4</span> 连续14点交替
+                    </label>
+                    <label class="rule-item" title="连续3点中2点在B区外同侧">
+                        <input type="checkbox" id="rule5" checked> <span class="rule-num">准则5</span> 3中2在B区外
+                    </label>
+                    <label class="rule-item" title="连续5点中4点在C区外同侧">
+                        <input type="checkbox" id="rule6"> <span class="rule-num">准则6</span> 5中4在C区外
+                    </label>
+                    <label class="rule-item" title="连续15点在C区内（±1σ）">
+                        <input type="checkbox" id="rule7"> <span class="rule-num">准则7</span> 连续15点在C区
+                    </label>
+                    <label class="rule-item" title="连续8点两侧且无一在C区内">
+                        <input type="checkbox" id="rule8"> <span class="rule-num">准则8</span> 8点两侧无C区
+                    </label>
+                </div>
+                <!-- 判异结果 -->
+                <div id="oocResult" style="display:none; margin-top:10px;">
+                    <div class="ooc-header">⚠ 判异结果（X̄/I 图）</div>
+                    <div id="oocList" class="ooc-list"></div>
                 </div>
             </div>
         </div>
